@@ -338,7 +338,12 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             break;
         case 6:
             // Text
-            widgetString = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            NSString *url = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            if ([url isEqualToString:@"Unknown"]) {
+                widgetString = @"Unknown123";
+            } else {
+                widgetString =  [WeatherUtils getDataFrom:url];
+            }
             break;
         case 7:
             // Current Capacity
