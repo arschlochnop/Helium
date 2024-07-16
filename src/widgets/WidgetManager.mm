@@ -303,6 +303,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
 {
     NSString *widgetString;
     NSString *sfSymbolName;
+    NSString *url;
     NSTextAttachment *imageAttachment;
     switch (parsedID) {
         case 1:
@@ -338,7 +339,8 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             break;
         case 6:
             // Text
-            NSString *url = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            
+            url = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
             if ([url isEqualToString:@"Unknown"]) {
                 widgetString = @"Unknown123";
             } else {
