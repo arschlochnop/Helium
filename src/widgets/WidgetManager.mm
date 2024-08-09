@@ -303,7 +303,6 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
 {
     NSString *widgetString;
     NSString *sfSymbolName;
-    NSString *url;
     NSTextAttachment *imageAttachment;
     switch (parsedID) {
         case 1:
