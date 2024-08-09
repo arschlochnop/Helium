@@ -408,13 +408,8 @@ static void ReloadHUD
 #if DEBUG
     os_log_debug(OS_LOG_DEFAULT, "updateLabel");
 #endif
-    // NSAttributedString *attributedText = formattedAttributedString(identifiers, fontSize, label.textColor, [self apiKey], [self dateLocale]);
-    NSString *htmlString = @"<p>This is an <strong>HTML</strong> string with <em>formatting</em>.</p>";
-    NSData *data = [htmlString dataUsingEncoding:NSUTF8StringEncoding];
-    NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
-    NSError *error;
-    NSAttributedString *attributedText = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
- 
+    NSAttributedString *attributedText = formattedAttributedString(identifiers, fontSize, label.textColor, [self apiKey], [self dateLocale]);
+
     if (attributedText) {
         // NSLog(@"boom attr:%@", attributedText);
         [label setAttributedText: attributedText];
