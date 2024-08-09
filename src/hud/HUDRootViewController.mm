@@ -416,8 +416,10 @@ static void ReloadHUD
         [maskLabel setAttributedText: attributedText];
         if (autoResizes) {
             [self useSizeThatFitsZeroWithLabel:maskLabel];
+            [self useSizeThatFitsZeroWithLabel:label];
         } else {
             [self useSizeThatFitsCustomWithLabel:maskLabel width: width height: height];
+            [self useSizeThatFitsCustomWithLabel:label width: width height: height];
         }
     }
 }
