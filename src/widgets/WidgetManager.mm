@@ -345,6 +345,16 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                 widgetString = @"Unknown123";
             } else {
                 widgetString =  [WeatherUtils getDataFrom:url];
+                NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
+                NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
+                NSError *error;
+                NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
+                
+                if (htmlString) {
+                    [mutableString appendAttributedString:htmlString];
+                } else {
+                    NSLog(@"Error parsing HTML: %@", error.localizedDescription);
+                }
             }
             break;
         case 7:
