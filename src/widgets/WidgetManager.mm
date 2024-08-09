@@ -338,22 +338,48 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             );
             break;
         case 6:
-            // Text
-            
-            url = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
-            if ([url isEqualToString:@"Unknown"]) {
-                widgetString = @"Unknown123";
+            // 偷懒方式，添加html富文本渲染,使用输入内容关键字判断，默认使用txt方式
+            // 支持多种方式,可选项为show参数. `show=html;https://www.example.com | show=txt;https://www.example.com | show=html;<p>test</p> | https://www.example.com `
+            stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            if ([stringData isEqualToString:@"Unknown"]) {
+                widgetContent = @"Unknown";
             } else {
-                widgetString =  [WeatherUtils getDataFrom:url];
-                NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
-                NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
-                NSError *error;
-                NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
+                NSArray *parsedComponents = [stringData componentsSeparatedByString:@";"];
+                NSString *displayType = @"txt";
+                NSString *laststring = parsedComponents.lastObject;
                 
-                if (htmlString) {
-                    [mutableString appendAttributedString:htmlString];
+                if (parsedComponents.count > 1) {
+                    for (NSString *component in parsedComponents) {
+                        if ([component hasPrefix:@"show="]) {
+                            displayType = [component substringFromIndex:5];
+                            break;
+                        }
+                    }
+                }
+                
+                // 检查 laststring 是否为 URL 格式
+                NSURL *url = [NSURL URLWithString:laststring];
+                if (url && url.scheme && url.host) {
+                    widgetContent = [WeatherUtils getDataFrom:laststring];
                 } else {
-                    NSLog(@"Error parsing HTML: %@", error.localizedDescription);
+                    widgetContent = laststring;
+                }
+                
+                if ([displayType isEqualToString:@"html"]) {
+                    // 解析 HTML
+                    NSData *data = [widgetContent dataUsingEncoding:NSUTF8StringEncoding];
+                    NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
+                    NSError *error;
+                    NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
+                    
+                    if (htmlString) {
+                        [mutableString appendAttributedString:htmlString];
+                    } else {
+                        NSLog(@"Error parsing HTML: %@", error.localizedDescription);
+                    }
+                } else {
+                    // 直接显示文本
+                    [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString:widgetContent]];
                 }
             }
             break;
