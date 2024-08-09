@@ -340,9 +340,9 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
         case 6:
             // 偷懒方式，添加html富文本渲染,使用输入内容关键字判断，默认使用txt方式
             // 支持多种方式,可选项为show参数. `show=html;https://www.example.com | show=txt;https://www.example.com | show=html;<p>test</p> | https://www.example.com `
-            stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            NSString *stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
             if ([stringData isEqualToString:@"Unknown"]) {
-                widgetContent = @"Unknown";
+                widgetString = @"Unknown";
             } else {
                 NSArray *parsedComponents = [stringData componentsSeparatedByString:@";"];
                 NSString *displayType = @"txt";
@@ -360,14 +360,14 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                 // 检查 laststring 是否为 URL 格式
                 NSURL *url = [NSURL URLWithString:laststring];
                 if (url && url.scheme && url.host) {
-                    widgetContent = [WeatherUtils getDataFrom:laststring];
+                    widgetString = [WeatherUtils getDataFrom:laststring];
                 } else {
-                    widgetContent = laststring;
+                    widgetString = laststring;
                 }
                 
                 if ([displayType isEqualToString:@"html"]) {
                     // 解析 HTML
-                    NSData *data = [widgetContent dataUsingEncoding:NSUTF8StringEncoding];
+                    NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
                     NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
                     NSError *error;
                     NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
@@ -377,10 +377,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                     } else {
                         NSLog(@"Error parsing HTML: %@", error.localizedDescription);
                     }
-                } else {
-                    // 直接显示文本
-                    [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString:widgetContent]];
-                }
+                } 
             }
             break;
         case 7:
