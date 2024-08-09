@@ -291,7 +291,7 @@ static NSString* formattedChargingSymbol(BOOL filled)
  3 = Device Temp
  4 = Battery Detail
  5 = Time
- 6 = Text
+ 6 = Text | html
  7 = Battery Percentage
  8 = Charging Symbol
  9 = Weather
@@ -303,6 +303,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
 {
     NSString *widgetString;
     NSString *sfSymbolName;
+    NSString *stringData
     NSTextAttachment *imageAttachment;
     switch (parsedID) {
         case 1:
@@ -339,7 +340,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
         case 6:
             // 偷懒方式，添加html富文本渲染,使用输入内容关键字判断，默认使用txt方式
             // 支持多种方式,可选项为show参数. `show=html;https://www.example.com | show=txt;https://www.example.com | show=html;<p>test</p> | https://www.example.com `
-            NSString *stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+            stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
             if ([stringData isEqualToString:@"Unknown"]) {
                 widgetString = @"Unknown";
             } else {
