@@ -419,7 +419,7 @@ static void ReloadHUD
 
 
         // 组合新的 testString 和现有的 attributedText
-        NSMutableAttributedString *combinedTextttt = [[NSMutableAttributedString alloc] initWithAttributedString:testString];
+        NSMutableAttributedString *combinedTextttt = [[NSMutableAttributedString alloc] initWithAttributedString:testStringggg];
         [combinedTextttt appendAttributedString:attributedText];
         [label setAttributedText: combinedTextttt];
 
