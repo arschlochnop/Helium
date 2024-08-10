@@ -413,7 +413,20 @@ static void ReloadHUD
     if (attributedText) {
         // NSLog(@"boom attr:%@", attributedText);
         [label setAttributedText: attributedText];
-        [maskLabel setAttributedText: attributedText];
+        
+        NSAttributedString *testString = [[NSAttributedString alloc] initWithString:@"test"];
+        
+        // 组合新的 testString 和现有的 attributedText
+        NSMutableAttributedString *combinedText = [[NSMutableAttributedString alloc] initWithAttributedString:testString];
+        [combinedText appendAttributedString:attributedText];
+        
+        // 设置组合后的文本到 maskLabel
+        [maskLabel setAttributedText:combinedText];
+
+
+
+        
+        // [maskLabel setAttributedText: attributedText];
         if (autoResizes) {
             [self useSizeThatFitsZeroWithLabel:maskLabel];
             [self useSizeThatFitsZeroWithLabel:label];
