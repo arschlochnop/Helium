@@ -412,9 +412,18 @@ static void ReloadHUD
 
     if (attributedText) {
         // NSLog(@"boom attr:%@", attributedText);
-        [label setAttributedText: attributedText];
+        //[label setAttributedText: attributedText];
         
         NSAttributedString *testString = [[NSAttributedString alloc] initWithString:@"test"];
+        NSAttributedString *testStringggg = [[NSAttributedString alloc] initWithString:@"gggg"];
+
+
+        // 组合新的 testString 和现有的 attributedText
+        NSMutableAttributedString *combinedTextttt = [[NSMutableAttributedString alloc] initWithAttributedString:testString];
+        [combinedTextttt appendAttributedString:attributedText];
+        [label setAttributedText: combinedTextttt];
+
+
         
         // 组合新的 testString 和现有的 attributedText
         NSMutableAttributedString *combinedText = [[NSMutableAttributedString alloc] initWithAttributedString:testString];
