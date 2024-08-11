@@ -375,6 +375,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                     if (htmlString) {
                         [mutableString appendAttributedString:htmlString];
                     } else {
+                        [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString: widgetString]];
                         NSLog(@"Error parsing HTML: %@", error.localizedDescription);
                     }
                 } 
