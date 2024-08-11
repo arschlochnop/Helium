@@ -418,7 +418,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             // do not add anything
             break;
     }
-    if (widgetString) {
+    if (widgetString && parsedID != 6) {
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\n" withString:@"\n"];
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\t" withString:@"\t"];
         [
