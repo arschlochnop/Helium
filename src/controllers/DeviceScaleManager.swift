@@ -10,7 +10,7 @@ import SwiftUI
 
 struct PresetStruct: Identifiable {
     var id = UUID()
-    
+
     var width: Double
     var offsetX: Double
     var offsetY: Double
@@ -23,32 +23,34 @@ enum Preset: String, CaseIterable {
 
 class DeviceScaleManager {
     static let shared = DeviceScaleManager()
-    
+
+    // 获取设备名称
     private func getDeviceName() -> String {
         if let simulatorModelIdentifier = ProcessInfo().environment["SIMULATOR_MODEL_IDENTIFIER"] {
             return simulatorModelIdentifier
         }
-        
+
         var sysinfo = utsname()
         uname(&sysinfo) // ignore return value
         let deviceModel = String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)?.trimmingCharacters(in: .controlCharacters)
 
         return deviceModel ?? ""
     }
-    
+
+    // 获取设备尺寸
     /*
-     Sizes:
-     0 = No Notch
-     1 = Small Notch
-     2 = Large Notch
-     3 = Dynamic Island
+     尺寸:
+     0 = 无刘海
+     1 = 小刘海
+     2 = 大刘海
+     3 = 动态岛屿
      */
     private func getDeviceSize() -> Int {
         let deviceModel: String = getDeviceName()
-        
-        // get the notch size
+
+        // 获取刘海尺寸
         if (deviceModel.starts(with: "iPhone14")) {
-            // Small Notch
+            // 小刘海
             return 1
         } else if (
             deviceModel.starts(with: "iPhone10,3")
@@ -57,13 +59,13 @@ class DeviceScaleManager {
             || deviceModel.starts(with: "iPhone12")
             || deviceModel.starts(with: "iPhone13")
         ) {
-            // Big Notch
+            // 大刘海
             return 2
         } else if (
             deviceModel.starts(with: "iPhone15")
             || deviceModel.starts(with: "iPhone16")
         ) {
-            // Dynamic Island
+            // 动态岛屿
             return 3
         }
         return 0

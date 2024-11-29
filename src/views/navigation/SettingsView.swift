@@ -1,6 +1,6 @@
 //
 //  SettingsView.swift
-//  Helium UI
+//  氦气UI
 //
 //  Created by lemin on 10/19/23.
 //
@@ -8,37 +8,40 @@
 import Foundation
 import SwiftUI
 
+// 构建号
 let buildNumber: Int = 0
+// 调试模式是否启用
 let DEBUG_MODE_ENABLED = false
+// 用户默认设置路径
 let USER_DEFAULTS_PATH = "/var/mobile/Library/Preferences/com.leemin.helium.plist"
 
-// MARK: Settings View
-// TODO: This
+// MARK: 设置视图
+// TODO: 这里需要完成
 struct SettingsView: View {
-    // Debug Variables
+    // 调试变量
     @State var sideWidgetSize: Int = 100
     @State var centerWidgetSize: Int = 100
-    
-    // Preference Variables
+
+    // 偏好变量
     @State var apiKey: String = ""
     @State var dateLocale: String = "en_US"
     @State var hideSaveConfirmation: Bool = false
     @State var debugBorder: Bool = false
-    
+
     var body: some View {
         NavigationView {
             List {
-                // App Version/Build Number
+                // 应用版本/构建号
                 Section {
-                    
+
                 } header: {
-                    Label(NSLocalizedString("Version ", comment:"") + "\(Bundle.main.releaseVersionNumber ?? NSLocalizedString("UNKNOWN", comment:"")) (\(buildNumber != 0 ? "\(buildNumber)" : NSLocalizedString("Release", comment:"")))", systemImage: "info")
+                    Label(NSLocalizedString("版本 ", comment:"") + "\(Bundle.main.releaseVersionNumber ?? NSLocalizedString("未知", comment:"")) (\(buildNumber != 0 ? "\(buildNumber)" : NSLocalizedString("发布", comment:"")))", systemImage: "info")
                 }
-                
-                // Preferences List
+
+                // 偏好列表
                 Section {
                     HStack {
-                        Text(NSLocalizedString("Date Locale", comment:""))
+                        Text(NSLocalizedString("日期地区", comment:""))
                             .bold()
                         Spacer()
                         Picker("", selection: $dateLocale) {
@@ -49,84 +52,84 @@ struct SettingsView: View {
                     }
 
                     HStack {
-                        Text(NSLocalizedString("Weather Api key", comment:""))
+                        Text(NSLocalizedString("天气Api密钥", comment:""))
                             .bold()
                         Spacer()
                         TextField("", text: $apiKey)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-                    
+
                     HStack {
                         Toggle(isOn: $hideSaveConfirmation) {
-                            Text(NSLocalizedString("Hide Save Confirmation Popup", comment:""))
+                            Text(NSLocalizedString("隐藏保存确认弹出", comment:""))
                                 .bold()
                                 .minimumScaleFactor(0.5)
                         }
                     }
-                    
+
                     HStack {
                         Toggle(isOn: $debugBorder) {
-                            Text(NSLocalizedString("Display Debug Border", comment:""))
+                            Text(NSLocalizedString("显示调试边框", comment:""))
                                 .bold()
                                 .minimumScaleFactor(0.5)
                         }
                     }
-                    
+
                     HStack {
-                        Text(NSLocalizedString("Helium Data", comment:""))
+                        Text(NSLocalizedString("氦气数据", comment:""))
                             .bold()
                         Spacer()
                         Button(action: {
                             do {
                                 try UserDefaults.standard.deleteUserDefaults(forPath: USER_DEFAULTS_PATH)
-                                UIApplication.shared.alert(title: NSLocalizedString("Successfully deleted user data!", comment:""), body: NSLocalizedString("Please restart the app to continue.", comment:""))
+                                UIApplication.shared.alert(title: NSLocalizedString("成功删除用户数据！", comment:""), body: NSLocalizedString("请重启应用以继续。", comment:""))
                             } catch {
-                                UIApplication.shared.alert(title: NSLocalizedString("Failed to delete user data!", comment:""), body: error.localizedDescription)
+                                UIApplication.shared.alert(title: NSLocalizedString("删除用户数据失败！", comment:""), body: error.localizedDescription)
                             }
                         }) {
-                            Text(NSLocalizedString("Reset Data", comment:""))
+                            Text(NSLocalizedString("重置数据", comment:""))
                                 .foregroundColor(.red)
                         }
                     }
                 } header: {
-                    Label(NSLocalizedString("Preferences", comment:""), systemImage: "gear")
+                    Label(NSLocalizedString("偏好", comment:""), systemImage: "gear")
                 }
-                
-                // Debug Settings
+
+                // 调试设置
                 if #available(iOS 15, *), DEBUG_MODE_ENABLED {
                     Section {
                         HStack {
-                            Text(NSLocalizedString("Side Widget Size", comment:""))
+                            Text(NSLocalizedString("侧边小部件大小", comment:""))
                                 .bold()
                             Spacer()
-                            TextField(NSLocalizedString("Side Size", comment:""), value: $sideWidgetSize, format: .number)
+                            TextField(NSLocalizedString("侧边大小", comment:""), value: $sideWidgetSize, format: .number)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .keyboardType(.decimalPad)
                                 .submitLabel(.done)
                         }
-                        
+
                         HStack {
-                            Text(NSLocalizedString("Center Widget Size", comment:""))
+                            Text(NSLocalizedString("中心小部件大小", comment:""))
                                 .bold()
                             Spacer()
-                            TextField(NSLocalizedString("Center Size", comment:""), value: $centerWidgetSize, format: .number)
+                            TextField(NSLocalizedString("中心大小", comment:""), value: $centerWidgetSize, format: .number)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .keyboardType(.decimalPad)
                                 .submitLabel(.done)
                         }
                     } header: {
-                        Label(NSLocalizedString("Debug Preferences", comment:""), systemImage: "ladybug")
+                        Label(NSLocalizedString("调试偏好", comment:""), systemImage: "ladybug")
                     }
                 }
-                
-                // Credits List
+
+                //鸣谢列表
                 Section {
-                    LinkCell(imageName: "leminlimez", url: "https://github.com/leminlimez", title: "LeminLimez", contribution: NSLocalizedString("Main Developer", comment: "leminlimez's contribution"), circle: true)
-                    LinkCell(imageName: "lessica", url: "https://github.com/Lessica/TrollSpeed", title: "Lessica", contribution: NSLocalizedString("TrollSpeed & Assistive Touch Logic", comment: "lessica's contribution"), circle: true)
-                    LinkCell(imageName: "fuuko", url: "https://github.com/AsakuraFuuko", title: "Fuuko", contribution: NSLocalizedString("Modder", comment: "Fuuko's contribution"), imageInBundle: true, circle: true)
-                    LinkCell(imageName: "bomberfish", url: "https://github.com/BomberFish", title: "BomberFish", contribution: NSLocalizedString("UI improvements", comment: "BomberFish's contribution"), imageInBundle: true, circle: true)
+                    LinkCell(imageName: "leminlimez", url: "https://github.com/leminlimez", title: "LeminLimez", contribution: NSLocalizedString("主开发者", comment: "leminlimez的贡献"), circle: true)
+                    LinkCell(imageName: "lessica", url: "https://github.com/Lessica/TrollSpeed", title: "Lessica", contribution: NSLocalizedString("TrollSpeed & 辅助触摸逻辑", comment: "lessica的贡献"), circle: true)
+                    LinkCell(imageName: "fuuko", url: "https://github.com/AsakuraFuuko", title: "Fuuko", contribution: NSLocalizedString("修改者", comment: "Fuuko的贡献"), imageInBundle: true, circle: true)
+                    LinkCell(imageName: "bomberfish", url: "https://github.com/BomberFish", title: "BomberFish", contribution: NSLocalizedString("UI改进", comment: "BomberFish的贡献"), imageInBundle: true, circle: true)
                 } header: {
-                    Label(NSLocalizedString("Credits", comment:""), systemImage: "wrench.and.screwdriver")
+                    Label(NSLocalizedString("鸣谢", comment:""), systemImage: "wrench.and.screwdriver")
                 }
             }
             .toolbar {
@@ -134,18 +137,19 @@ struct SettingsView: View {
                     Button(action: {
                         saveChanges()
                     }) {
-                        Text(NSLocalizedString("Save", comment:""))
+                        Text(NSLocalizedString("保存", comment:""))
                     }
                 }
             }
             .onAppear {
                 loadSettings()
             }
-            .navigationTitle(Text(NSLocalizedString("Settings", comment:"")))
+            .navigationTitle(Text(NSLocalizedString("设置", comment:"")))
         }
         .navigationViewStyle(StackNavigationViewStyle())
     }
 
+    // 加载设置
     func loadSettings() {
         dateLocale = UserDefaults.standard.string(forKey: "dateLocale", forPath: USER_DEFAULTS_PATH) ?? "en_US"
         apiKey = UserDefaults.standard.string(forKey: "apiKey", forPath: USER_DEFAULTS_PATH) ?? ""
@@ -153,16 +157,17 @@ struct SettingsView: View {
         debugBorder = UserDefaults.standard.bool(forKey: "debugBorder", forPath: USER_DEFAULTS_PATH)
     }
 
+    // 保存更改
     func saveChanges() {
         UserDefaults.standard.setValue(apiKey, forKey: "apiKey", forPath: USER_DEFAULTS_PATH)
         UserDefaults.standard.setValue(dateLocale, forKey: "dateLocale", forPath: USER_DEFAULTS_PATH)
         UserDefaults.standard.setValue(hideSaveConfirmation, forKey: "hideSaveConfirmation", forPath: USER_DEFAULTS_PATH)
         UserDefaults.standard.setValue(debugBorder, forKey: "debugBorder", forPath: USER_DEFAULTS_PATH)
-        UIApplication.shared.alert(title: NSLocalizedString("Save Changes", comment:""), body: NSLocalizedString("Settings saved successfully", comment:""))
+        UIApplication.shared.alert(title: NSLocalizedString("保存更改", comment:""), body: NSLocalizedString("设置已成功保存", comment:""))
         DarwinNotificationCenter.default.post(name: NOTIFY_RELOAD_HUD)
     }
-    
-    // Link Cell code from Cowabunga
+
+    // 连接单元格代码来自Cowabunga
     struct LinkCell: View {
         var imageName: String
         var url: String
@@ -171,7 +176,7 @@ struct SettingsView: View {
         var systemImage: Bool = false
         var imageInBundle: Bool = false
         var circle: Bool = false
-        
+
         var body: some View {
             HStack(alignment: .center) {
                 Group {
@@ -196,7 +201,7 @@ struct SettingsView: View {
                 }
                 .cornerRadius(circle ? .infinity : 0)
                 .frame(width: 24, height: 24)
-                
+
                 VStack {
                     HStack {
                         Button(action: {

@@ -8,46 +8,48 @@
 import Foundation
 import SwiftUI
 
+// MARK: - 小组件偏好设置视图
 struct WidgetPreferencesView: View {
     @StateObject var widgetManager: WidgetManager
     @State var widgetSet: WidgetSetStruct
     @Binding var widgetID: WidgetIDStruct
-    
+
     @State var text: String = ""
     @State var weatherFormat: String = ""
     @State var intSelection: Int = 0
     @State var intSelection2: Int = 0
     @State var intSelection3: Int = 1
     @State var boolSelection: Bool = false
-    
+
     @State var modified: Bool = false
     @State private var isPresented = false
-    
+
     let timeFormats: [String] = [
         "hh:mm",
         "hh:mm a",
         "hh:mm:ss",
         "hh",
-        
+
         "HH:mm",
         "HH:mm:ss",
         "HH",
-        
+
         "mm",
         "ss"
     ]
-    
+
     let dateFormatter = DateFormatter()
     let currentDate = Date()
-    
+
+    // MARK: - 视图主体
     var body: some View {
         VStack {
-            // MARK: Preview
+            // MARK: 预览视图
             WidgetPreviewsView(widget: $widgetID, previewColor: .white)
-            
+
             switch (widgetID.module) {
             case .dateWidget:
-                // MARK: Date Format Textbox
+                // MARK: 日期格式文本框
                 HStack {
                     Text(NSLocalizedString("Date Format", comment:""))
                         .foregroundColor(.primary)
@@ -65,7 +67,7 @@ struct WidgetPreferencesView: View {
                         }
                 }
             case .network:
-                // MARK: Network Type Choice
+                // MARK: 网络类型选择
                 VStack {
                     HStack {
                         Text(NSLocalizedString("Network Type", comment:"")).foregroundColor(.primary).bold()
@@ -83,7 +85,7 @@ struct WidgetPreferencesView: View {
                             }
                         }
                     }
-                    // MARK: Speed Icon Choice
+                    // MARK: 速度图标选择
                     HStack {
                         Text(NSLocalizedString("Speed Icon", comment:"")).foregroundColor(.primary).bold()
                         Spacer()
@@ -100,7 +102,7 @@ struct WidgetPreferencesView: View {
                             }
                         }
                     }
-                    // MARK: Minimum Unit Choice
+                    // MARK: 最小单位选择
                     HStack {
                         Text(NSLocalizedString("Minimum Unit", comment:"")).foregroundColor(.primary).bold()
                         Spacer()
@@ -119,7 +121,7 @@ struct WidgetPreferencesView: View {
                             }
                         }
                     }
-                    // MARK: Hide Speed When Zero
+                    // MARK: 零速度时隐藏
                     Toggle(isOn: $boolSelection) {
                         Text(NSLocalizedString("Hide Speed When 0", comment:""))
                             .foregroundColor(.primary)
@@ -130,7 +132,7 @@ struct WidgetPreferencesView: View {
                     }
                 }
             case .temperature:
-                // MARK: Battery Temperature Value
+                // MARK: 温度单位选择
                 HStack {
                     Text(NSLocalizedString("Temperature Unit", comment:"")).foregroundColor(.primary).bold()
                     Spacer()
@@ -148,7 +150,7 @@ struct WidgetPreferencesView: View {
                         }
                 }
             case .battery:
-                // MARK: Battery Value Type
+                // MARK: 电池值类型选择
                 HStack {
                     Text(NSLocalizedString("Battery Option", comment:"")).foregroundColor(.primary).bold()
                     Spacer()
@@ -168,7 +170,7 @@ struct WidgetPreferencesView: View {
                     }
                 }
             case .timeWidget:
-                // MARK: Time Format Selector
+                // MARK: 时间格式选择
                 HStack {
                     Picker(selection: $intSelection, label: Text(NSLocalizedString("Time Format", comment:"")).foregroundColor(.primary).bold()) {
                         ForEach(0..<timeFormats.count, id: \.self) { index in
@@ -184,7 +186,7 @@ struct WidgetPreferencesView: View {
                     }
                 }
             case .textWidget:
-                // MARK: Custom Text Label Textbox
+                // MARK: 自定义文本标签文本框
                 HStack {
                     Text(NSLocalizedString("Label Text", comment:""))
                         .foregroundColor(.primary)
@@ -202,7 +204,7 @@ struct WidgetPreferencesView: View {
                         }
                 }
             case .currentCapacity:
-                // MARK: Current Capacity Choice
+                // MARK: 当前容量选择
                 HStack {
                     Toggle(isOn: $boolSelection) {
                         Text(NSLocalizedString("Show Percent (%) Symbol", comment:""))
@@ -214,7 +216,7 @@ struct WidgetPreferencesView: View {
                     }
                 }
             case .chargeSymbol:
-                // MARK: Charge Symbol Fill Option
+                // MARK: 充电符号填充选择
                 HStack {
                     Toggle(isOn: $boolSelection) {
                         Text(NSLocalizedString("Fill Symbol", comment:""))
@@ -280,6 +282,24 @@ struct WidgetPreferencesView: View {
                         }
                     }
                 }
+            case .webPage:
+                // MARK: URL输入框
+                HStack {
+                    Text(NSLocalizedString("URL", comment:""))
+                        .foregroundColor(.primary)
+                        .bold()
+                    Spacer()
+                    TextField("https://example.com", text: $text)
+                        .frame(maxWidth: 240)
+                        .multilineTextAlignment(.trailing)
+                        .onAppear {
+                            if let url = widgetID.config["url"] as? String {
+                                text = url
+                            } else {
+                                text = "https://example.com"
+                            }
+                        }
+                }
             // default:
             //     Text(NSLocalizedString("No Configurable Aspects", comment:""))
             }
@@ -287,8 +307,8 @@ struct WidgetPreferencesView: View {
         .padding(.horizontal, 15)
         .toolbar {
             HStack {
-                // MARK: Save Button
-                // only shows up if something is changed
+                // MARK: 保存按钮
+                // 只有在有更改时才会显示
                 if (modified) {
                     Button(action: {
                         saveChanges()
@@ -324,60 +344,64 @@ struct WidgetPreferencesView: View {
             modified = true
         }
     }
-    
+
+    /// 根据指定格式获取格式化的日期字符串
+    /// - Parameter format: 日期格式字符串
+    /// - Returns: 格式化后的日期字符串
     func getFormattedDate(_ format: String) -> String {
         let locale = UserDefaults.standard.string(forKey: "dateLocale", forPath: USER_DEFAULTS_PATH) ?? "en_US"
         dateFormatter.locale = Locale(identifier: locale)
         dateFormatter.dateFormat = format
-        // dateFormatter.locale = Locale(identifier: NSLocalizedString("en_US", comment:""))
         return dateFormatter.string(from: currentDate)
     }
-    
+
+    /// 保存小组件配置更改
+    /// 根据不同的小组件类型更新相应的配置
     func saveChanges() {
         var widgetStruct: WidgetIDStruct = .init(module: widgetID.module, config: widgetID.config)
-        
+
         switch(widgetStruct.module) {
-        // MARK: Changing Text
+        // MARK: - 文本类型配置
         case .dateWidget:
-            // MARK: Date Format Handling
+            // MARK: 日期格式处理
             if text == "" {
                 widgetStruct.config["dateFormat"] = nil
             } else {
                 widgetStruct.config["dateFormat"] = text
             }
         case .textWidget:
-            // MARK: Custom Text Handling
+            // MARK: - 自定义文本处理
             if text == "" {
                 widgetStruct.config["text"] = nil
             } else {
                 widgetStruct.config["text"] = text
             }
-        
-        // MARK: Changing Integer
+
+        // MARK: - 更改整数
         case .network:
-            // MARK: Network Choices Handling
+            // MARK: - 网络选择处理
             widgetStruct.config["isUp"] = intSelection == 1 ? true : false
             widgetStruct.config["speedIcon"] = intSelection2
             widgetStruct.config["minUnit"] = intSelection3
             widgetStruct.config["hideSpeedWhenZero"] = boolSelection
         case .temperature:
-            // MARK: Temperature Unit Handling
+            // MARK: - 温度单位处理
             widgetStruct.config["useFahrenheit"] = intSelection == 1 ? true : false
         case .battery:
-            // MARK: Battery Value Type Handling
+            // MARK: - 电池值类型处理
             widgetStruct.config["batteryValueType"] = intSelection
         case .timeWidget:
-            // MARK: Time Format Handling
+            // MARK: - 时间格式处理
             widgetStruct.config["dateFormat"] = timeFormats[intSelection]
-        // MARK: Changing Boolean
+        // MARK: - 更改布尔值
         case .currentCapacity:
-            // MARK: Current Capacity Handling
+            // MARK: - 当前容量处理
             widgetStruct.config["showPercentage"] = boolSelection
         case .chargeSymbol:
-            // MARK: Charge Symbol Fill Handling
+            // MARK: - 充电符号填充处理
             widgetStruct.config["filled"] = boolSelection
         case .weather:
-            // MARK: Weather Handling
+            // MARK: - 天气处理
             if text == "" {
                 widgetStruct.config["location"] = nil
             } else {
@@ -388,23 +412,31 @@ struct WidgetPreferencesView: View {
             } else {
                 widgetStruct.config["format"] = weatherFormat
             }
+        case .webPage:
+            // MARK: Web页面配置保存
+            if text.isEmpty {
+                widgetStruct.config["url"] = nil
+            } else {
+                widgetStruct.config["url"] = text
+            }
         // default:
         //     return;
         }
-        
+
         widgetManager.updateWidgetConfig(widgetSet: widgetSet, id: widgetID, newID: widgetStruct)
         widgetID.config = widgetStruct.config
         modified = false
     }
 }
 
+// MARK: - 天气位置选择视图
 struct WeatherLocationView: View {
     @State var searchString = ""
     @Binding var locationID: String
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
 
     @State var locations: [Location] = []
-    
+
     var body: some View {
         NavigationView{
             VStack {
@@ -426,6 +458,8 @@ struct WeatherLocationView: View {
         }
     }
 
+    /// 执行位置搜索
+    /// 根据用户输入的搜索字符串获取位置信息
     func search() {
         if !searchString.isEmpty {
             let dateLocale = UserDefaults.standard.string(forKey: "dateLocale", forPath: USER_DEFAULTS_PATH) ?? "en_US"
@@ -449,6 +483,7 @@ struct WeatherLocationView: View {
     }
 }
 
+// MARK: - 自定义搜索栏视图
 struct SearchBarUIView: UIViewRepresentable {
     @Binding var text: String
     let placeHolder: String?
@@ -458,10 +493,12 @@ struct SearchBarUIView: UIViewRepresentable {
         self.placeHolder = placeHolder
         self.search = search
     }
+    /// 创建搜索栏协调器
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, searchAction: search)
     }
-    
+
+    /// 创建 UIKit 搜索栏
     func makeUIView(context: Context) -> UISearchBar {
         let searchBar = UISearchBar()
         searchBar.searchBarStyle = .minimal
@@ -471,8 +508,9 @@ struct SearchBarUIView: UIViewRepresentable {
         }
         return searchBar
     }
+    /// 更新 UIKit 搜索栏
     func updateUIView(_ uiView: UISearchBar, context: Context) {
-        
+
     }
     class Coordinator: NSObject, UISearchBarDelegate {
         @Binding var text: String
@@ -503,9 +541,10 @@ struct SearchBarUIView: UIViewRepresentable {
     }
 }
 
+// MARK: - 列表单元格视图
 struct ListCell: View {
     var item: Location
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -540,6 +579,7 @@ extension UIApplication {
     }
 }
 
+// MARK: - 拖动收起键盘手势修饰器
 struct ResignKeyboardOnDragGesture: ViewModifier {
     var gesture = DragGesture().onChanged{_ in
         UIApplication.shared.endEditing(true)
@@ -549,12 +589,15 @@ struct ResignKeyboardOnDragGesture: ViewModifier {
     }
 }
 
+// MARK: - View 扩展
 extension View {
+    /// 添加拖动收起键盘的手势
     func resignKeyboardOnDragGesture() -> some View {
         return modifier(ResignKeyboardOnDragGesture())
     }
 }
 
+// MARK: - 位置数据模型
 struct Location: Identifiable {
     var id: String
     var name: String

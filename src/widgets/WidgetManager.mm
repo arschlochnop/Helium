@@ -344,6 +344,7 @@ static NSString* formattedChargingSymbol(BOOL filled)
  7 = 电池百分比
  8 = 充电符号
  9 = 天气
+ 10 = Web Page
 
  TODO:
  - Music Visualizer
@@ -482,11 +483,42 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                 widgetString = [WeatherUtils formatTodayResult:today format:widgetString];
             }
             break;
+        case 10:
+            // Web Page
+            {
+                NSString *url = [parsedInfo valueForKey:@"url"];
+                if (!url) {
+                    widgetString = @"URL not provided";
+                } else {
+                    @try {
+                        widgetString = [WeatherUtils getDataFrom:url];
+                        if (!widgetString) {
+                            widgetString = @"Failed to load content";
+                        } else {
+                            NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
+                            NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
+                            NSError *error;
+                            NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
+
+                            if (htmlString) {
+                                [mutableString appendAttributedString:htmlString];
+                            } else {
+                                [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString: widgetString]];
+                                NSLog(@"Error parsing HTML: %@", error.localizedDescription);
+                            }
+                        }
+                    } @catch (NSException *exception) {
+                        NSLog(@"Error fetching web page: %@", exception);
+                        widgetString = @"Error loading page";
+                    }
+                }
+            }
+            break;
         default:
             // 不添加任何内容
             break;
     }
-    if (widgetString && parsedID != 6) {
+    if (widgetString && parsedID != 6 && parsedID != 10) {
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\n" withString:@"\n"];
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\t" withString:@"\t"];
         [
