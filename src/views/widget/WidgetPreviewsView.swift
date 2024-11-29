@@ -110,7 +110,7 @@ struct WidgetPreviewsView: View {
             text = "50\(widget.config["showPercentage"] as? Bool ?? true ? "%" : "")"
         case .chargeSymbol:
             image = widget.config["filled"] as? Bool ?? true ? Image(systemName: "bolt.fill") : Image(systemName: "bolt")
-        case .webPage:
+        case .webWidget:
             // 获取配置的URL，如果没有则显示默认文本
             let url = widget.config["url"] as? String
             let showUrl = widget.config["showUrl"] as? Bool ?? false

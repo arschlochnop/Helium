@@ -282,7 +282,7 @@ struct WidgetPreferencesView: View {
                         }
                     }
                 }
-            case .webPage:
+            case .webWidget:
                 // MARK: URL输入框
                 HStack {
                     Text(NSLocalizedString("URL", comment:""))
@@ -412,7 +412,7 @@ struct WidgetPreferencesView: View {
             } else {
                 widgetStruct.config["format"] = weatherFormat
             }
-        case .webPage:
+        case .webWidget:
             // MARK: Web页面配置保存
             if text.isEmpty {
                 widgetStruct.config["url"] = nil
