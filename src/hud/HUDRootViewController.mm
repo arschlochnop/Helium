@@ -21,6 +21,10 @@
 #define NOTIFY_UI_LOCKSTATE    "com.apple.springboard.lockstate"
 #define NOTIFY_LS_APP_CHANGED  "com.apple.LaunchServices.ApplicationsChanged"
 
+/**
+ * 处理应用程序安装状态变化的通知回调
+ * 当应用被安装或卸载时触发
+ */
 static void LaunchServicesApplicationStateChanged
 (CFNotificationCenterRef center,
  void *observer,
@@ -28,10 +32,9 @@ static void LaunchServicesApplicationStateChanged
  const void *object,
  CFDictionaryRef userInfo)
 {
-    /* Application installed or uninstalled */
-
+    /* 检查应用是否已安装 */
     BOOL isAppInstalled = NO;
-    
+
     for (LSApplicationProxy *app in [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allApplications])
     {
         if ([app.applicationIdentifier isEqualToString:@"com.leemin.helium"])
@@ -48,6 +51,10 @@ static void LaunchServicesApplicationStateChanged
     }
 }
 
+/**
+ * 处理设备锁屏状态变化的通知回调
+ * 当设备锁屏或解锁时触发
+ */
 static void SpringBoardLockStatusChanged
 (CFNotificationCenterRef center,
  void *observer,
@@ -60,10 +67,10 @@ static void SpringBoardLockStatusChanged
     if ([lockState isEqualToString:@NOTIFY_UI_LOCKSTATE])
     {
         mach_port_t sbsPort = SBSSpringBoardServerPort();
-        
+
         if (sbsPort == MACH_PORT_NULL)
             return;
-        
+
         BOOL isLocked;
         BOOL isPasscodeSet;
         SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
@@ -81,6 +88,10 @@ static void SpringBoardLockStatusChanged
     }
 }
 
+/**
+ * 重新加载 HUD 界面的通知回调
+ * 当需要刷新 HUD 显示时触发
+ */
 static void ReloadHUD
 (CFNotificationCenterRef center,
  void *observer,
@@ -88,35 +99,62 @@ static void ReloadHUD
  const void *object,
  CFDictionaryRef userInfo)
 {
-    // NSLog(@"boom ReloadHUD");
     HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    // [rootViewController createWidgetSets];
     [rootViewController reloadUserDefaults];
     [rootViewController resetLoopTimer];
     [rootViewController updateViewConstraints];
 }
 
-#pragma mark - HUDRootViewController
+/**
+ * 处理截图事件的通知回调
+ * 当用户进行截图时触发
+ */
+static void UserDidTakeScreenshot
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
+{
+    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
 
-@implementation HUDRootViewController {
-    NSMutableDictionary *_userDefaults;
-    NSMutableArray <NSLayoutConstraint *> *_constraints;
-    FBSOrientationObserver *_orientationObserver;
-    // view object arrays
-    NSMutableArray <UIVisualEffectView *> *_blurViews;
-    NSMutableArray <UILabel *> *_labelViews;
-    
-    NSMutableArray <AnyBackdropView *> *_backdropViews;
-    NSMutableArray <UILabel *> *_maskLabelViews;
+    // 立即隐藏视图
+    [rootViewController.view setHidden:YES];
+    [rootViewController pauseLoopTimer];
 
-    UIView *_contentView;
-    
-    UIInterfaceOrientation _orientation;
-
-    UIView *_horizontalLine;
-    UIView *_verticalLine;
+    // 延迟1秒后重新显示
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [rootViewController.view setHidden:NO];
+        [rootViewController resumeLoopTimer];
+    });
 }
 
+#pragma mark - HUDRootViewController
+
+/**
+ * HUDRootViewController类的实现
+ */
+@implementation HUDRootViewController {
+    NSMutableDictionary *_userDefaults;           // 用户默认设置
+    NSMutableArray <NSLayoutConstraint *> *_constraints;  // 布局约束数组
+    FBSOrientationObserver *_orientationObserver; // 屏幕方向观察器
+
+    // 视图对象数组
+    NSMutableArray <UIVisualEffectView *> *_blurViews;      // 模糊效果视图数组
+    NSMutableArray <UILabel *> *_labelViews;                // 标签视图数组
+    NSMutableArray <AnyBackdropView *> *_backdropViews;     // 背景视图数组
+    NSMutableArray <UILabel *> *_maskLabelViews;           // 遮罩标签视图数组
+
+    UIView *_contentView;                         // 内容主视图
+    UIInterfaceOrientation _orientation;          // 当前屏幕方向
+
+    UIView *_horizontalLine;                      // 水平参考线
+    UIView *_verticalLine;                        // 垂直参考线
+}
+
+/**
+ * 注册通知
+ */
 - (void)registerNotifications
 {
     int token;
@@ -127,7 +165,7 @@ static void ReloadHUD
     });
 
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
-    
+
     CFNotificationCenterAddObserver(
         darwinCenter,
         (__bridge const void *)self,
@@ -136,7 +174,7 @@ static void ReloadHUD
         NULL,
         CFNotificationSuspensionBehaviorCoalesce
     );
-    
+
     CFNotificationCenterAddObserver(
         darwinCenter,
         (__bridge const void *)self,
@@ -154,21 +192,35 @@ static void ReloadHUD
         NULL,
         CFNotificationSuspensionBehaviorCoalesce
     );
-}
 
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        UserDidTakeScreenshot,
+        CFSTR("UIApplicationUserDidTakeScreenshotNotification"),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
+}
 
 #pragma mark - User Default Stuff
 
+/**
+ * 加载用户默认设置
+ */
 - (void)loadUserDefaults:(BOOL)forceReload
 {
     if (forceReload || !_userDefaults)
         _userDefaults = [[NSDictionary dictionaryWithContentsOfFile:USER_DEFAULTS_PATH] mutableCopy] ?: [NSMutableDictionary dictionary];
 }
 
+/**
+ * 重新加载用户默认设置
+ */
 - (void) reloadUserDefaults
 {
     [self loadUserDefaults: YES];
-    
+
     if ([self debugBorder]) {
         _contentView.layer.borderWidth = 1.0;
         [_horizontalLine setHidden:NO];
@@ -207,7 +259,7 @@ static void ReloadHUD
         UIFont *textFont = [FontUtils loadFontWithName:fontName size: getDoubleFromDictKey(properties, @"fontSize", 10) bold: getBoolFromDictKey(properties, @"textBold") italic: getBoolFromDictKey(properties, @"textItalic")];
         double textAlpha = getDoubleFromDictKey(properties, @"textAlpha", 1.0);
         BOOL dynamicColor = getBoolFromDictKey(properties, @"dynamicColor", true);
-        
+
         labelView.textAlignment = textAlign;
         labelView.font = textFont;
         maskLabelView.textAlignment = textAlign;
@@ -258,6 +310,9 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 检查是否启用调试边框
+ */
 - (BOOL) debugBorder
 {
     [self loadUserDefaults:NO];
@@ -265,6 +320,9 @@ static void ReloadHUD
     return mode ? [mode boolValue] : NO;
 }
 
+/**
+ * 获取API密钥
+ */
 - (NSString*) apiKey
 {
     [self loadUserDefaults:NO];
@@ -272,6 +330,9 @@ static void ReloadHUD
     return apiKey ? apiKey : @"";
 }
 
+/**
+ * 获取日期区域设置
+ */
 - (NSString*) dateLocale
 {
     [self loadUserDefaults:NO];
@@ -279,6 +340,9 @@ static void ReloadHUD
     return locale ? locale : @"en_US";
 }
 
+/**
+ * 获取小部件属性
+ */
 - (NSArray*) widgetProperties
 {
     [self loadUserDefaults: NO];
@@ -286,6 +350,9 @@ static void ReloadHUD
     return properties;
 }
 
+/**
+ * 检查当前是否为横向屏幕方向
+ */
 - (BOOL) isLandscapeOrientation
 {
     BOOL isLandscape;
@@ -299,6 +366,9 @@ static void ReloadHUD
 
 #pragma mark - Initialization and Deallocation
 
+/**
+ * 初始化方法
+ */
 - (instancetype)init
 {
     self = [super init];
@@ -325,6 +395,9 @@ static void ReloadHUD
     return self;
 }
 
+/**
+ * 释放方法
+ */
 - (void)dealloc
 {
     [_orientationObserver invalidate];
@@ -332,9 +405,12 @@ static void ReloadHUD
 
 #pragma mark - HUD UI Main Functions
 
+/**
+ * 视图加载完成
+ */
 - (void) viewDidLoad
 {
-    [super viewDidLoad];    
+    [super viewDidLoad];
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
     _contentView.backgroundColor = [UIColor clearColor];
@@ -359,6 +435,9 @@ static void ReloadHUD
     notify_post(NOTIFY_RELOAD_HUD);
 }
 
+/**
+ * 视图已出现
+ */
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
@@ -367,6 +446,9 @@ static void ReloadHUD
 
 #pragma mark - Timer and View Updating
 
+/**
+ * 重置循环定时器
+ */
 - (void)resetLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -403,6 +485,9 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 更新标签
+ */
 - (void) updateLabel:(UILabel *) label updateMaskLabel:(UILabel *) maskLabel backdropView:(AnyBackdropView *) backdropView identifiers:(NSArray *) identifiers fontSize:(double) fontSize autoResizes:(BOOL) autoResizes width:(CGFloat) width height:(CGFloat) height
 {
 #if DEBUG
@@ -414,7 +499,7 @@ static void ReloadHUD
         // NSLog(@"boom attr:%@", attributedText);
         [label setAttributedText: attributedText];
         [maskLabel setAttributedText:attributedText];
-        
+
         if (autoResizes) {
             [self useSizeThatFitsZeroWithLabel:maskLabel];
             [self useSizeThatFitsZeroWithLabel:label];
@@ -425,16 +510,25 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 使用大小适合的标签
+ */
 - (void) useSizeThatFitsZeroWithLabel:(UILabel *)label{
     CGSize size = [label sizeThatFits:CGSizeZero];
     label.frame = CGRectMake(label.frame.origin.x, label.frame.origin.y, size.width, size.height);
 }
 
+/**
+ * 使用自定义大小适合的标签
+ */
 - (void) useSizeThatFitsCustomWithLabel:(UILabel *)label width:(CGFloat) width height:(CGFloat) height{
     // CGSize size = [label sizeThatFits:CGSizeMake(width, height)];
     label.frame = CGRectMake(label.frame.origin.x, label.frame.origin.y, width, height);
 }
 
+/**
+ * 暂停循环定时器
+ */
 - (void)pauseLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -446,6 +540,9 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 恢复循环定时器
+ */
 - (void)resumeLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -457,12 +554,20 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 视图安全区域插入改变
+ * 在视图安全区域插入改变后更新视图的约束
+ */
 - (void)viewSafeAreaInsetsDidChange
 {
     [super viewSafeAreaInsetsDidChange];
     [self updateViewConstraints];
 }
 
+/**
+ * 创建小部件设置视图
+ * 根据用户默认设置，创建小部件设置视图
+ */
 - (void)createWidgetSetsView
 {
     // MARK: Create the Widgets
@@ -508,6 +613,10 @@ static void ReloadHUD
     }
 }
 
+/**
+ * 更新视图约束
+ * 根据用户默认设置和小部件的属性设置，更新视图的约束
+ */
 - (void)updateViewConstraints
 {
     [NSLayoutConstraint deactivateConstraints:_constraints];
@@ -515,7 +624,7 @@ static void ReloadHUD
 
     BOOL isPad = ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad);
     UILayoutGuide *layoutGuide = self.view.safeAreaLayoutGuide;
-    
+
     // code from Lessica/TrollSpeed
     if ([self isLandscapeOrientation])
     {
@@ -626,14 +735,14 @@ static void ReloadHUD
             [_constraints addObject:[labelView.widthAnchor constraintEqualToConstant:getDoubleFromDictKey(properties, @"scale", 50.0)]];
             [_constraints addObject:[labelView.heightAnchor constraintEqualToConstant:getDoubleFromDictKey(properties, @"scaleY", 12.0)]];
         }
-        
+
         [_constraints addObjectsFromArray:@[
             [blurView.topAnchor constraintEqualToAnchor:backdropView.topAnchor constant:-2],
             [blurView.leadingAnchor constraintEqualToAnchor:backdropView.leadingAnchor constant:-4],
             [blurView.trailingAnchor constraintEqualToAnchor:backdropView.trailingAnchor constant:4],
             [blurView.bottomAnchor constraintEqualToAnchor:backdropView.bottomAnchor constant:2],
         ]];
-        
+
         [_constraints addObjectsFromArray:@[
             [blurView.topAnchor constraintEqualToAnchor:labelView.topAnchor constant:-2],
             [blurView.leadingAnchor constraintEqualToAnchor:labelView.leadingAnchor constant:-4],
@@ -647,17 +756,21 @@ static void ReloadHUD
         [_horizontalLine.widthAnchor constraintEqualToAnchor:_contentView.widthAnchor],
         [_horizontalLine.heightAnchor constraintEqualToConstant:1]
     ]];
-    
+
     [_constraints addObjectsFromArray:@[
         [_verticalLine.centerXAnchor constraintEqualToAnchor:_contentView.centerXAnchor],
         [_verticalLine.widthAnchor constraintEqualToConstant:1],
         [_verticalLine.heightAnchor constraintEqualToAnchor:_contentView.heightAnchor]
     ]];
-    
+
     [NSLayoutConstraint activateConstraints:_constraints];
     [super updateViewConstraints];
 }
 
+/**
+ * 更新屏幕方向
+ * 根据用户默认设置和屏幕方向，更新小部件的显示状态
+ */
 static inline CGFloat orientationAngle(UIInterfaceOrientation orientation)
 {
     switch (orientation) {
@@ -672,6 +785,10 @@ static inline CGFloat orientationAngle(UIInterfaceOrientation orientation)
     }
 }
 
+/**
+ * 更新屏幕方向
+ * 根据用户默认设置和屏幕方向，更新小部件的显示状态
+ */
 static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRect bounds)
 {
     switch (orientation) {
@@ -683,6 +800,10 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     }
 }
 
+/**
+ * 更新屏幕方向
+ * 根据���户默认设置和屏幕方向，更新小部件的显示状态
+ */
 - (void)updateOrientation:(UIInterfaceOrientation)orientation animateWithDuration:(NSTimeInterval)duration
 {
     __weak typeof(self) weakSelf = self;

@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State var dateLocale: String = "en_US"
     @State var hideSaveConfirmation: Bool = false
     @State var debugBorder: Bool = false
+    @State var hideWidgetsInScreenshot: Bool = false
 
     var body: some View {
         NavigationView {
@@ -70,6 +71,14 @@ struct SettingsView: View {
                     HStack {
                         Toggle(isOn: $debugBorder) {
                             Text(NSLocalizedString("显示调试边框", comment:""))
+                                .bold()
+                                .minimumScaleFactor(0.5)
+                        }
+                    }
+
+                    HStack {
+                        Toggle(isOn: $hideWidgetsInScreenshot) {
+                            Text(NSLocalizedString("截图时隐藏小组件", comment:""))
                                 .bold()
                                 .minimumScaleFactor(0.5)
                         }
@@ -155,6 +164,7 @@ struct SettingsView: View {
         apiKey = UserDefaults.standard.string(forKey: "apiKey", forPath: USER_DEFAULTS_PATH) ?? ""
         hideSaveConfirmation = UserDefaults.standard.bool(forKey: "hideSaveConfirmation", forPath: USER_DEFAULTS_PATH)
         debugBorder = UserDefaults.standard.bool(forKey: "debugBorder", forPath: USER_DEFAULTS_PATH)
+        hideWidgetsInScreenshot = UserDefaults.standard.bool(forKey: "hideWidgetsInScreenshot", forPath: USER_DEFAULTS_PATH)
     }
 
     // 保存更改
@@ -163,6 +173,7 @@ struct SettingsView: View {
         UserDefaults.standard.setValue(dateLocale, forKey: "dateLocale", forPath: USER_DEFAULTS_PATH)
         UserDefaults.standard.setValue(hideSaveConfirmation, forKey: "hideSaveConfirmation", forPath: USER_DEFAULTS_PATH)
         UserDefaults.standard.setValue(debugBorder, forKey: "debugBorder", forPath: USER_DEFAULTS_PATH)
+        UserDefaults.standard.setValue(hideWidgetsInScreenshot, forKey: "hideWidgetsInScreenshot", forPath: USER_DEFAULTS_PATH)
         UIApplication.shared.alert(title: NSLocalizedString("保存更改", comment:""), body: NSLocalizedString("设置已成功保存", comment:""))
         DarwinNotificationCenter.default.post(name: NOTIFY_RELOAD_HUD)
     }

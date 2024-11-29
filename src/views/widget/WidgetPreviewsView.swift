@@ -113,8 +113,7 @@ struct WidgetPreviewsView: View {
         case .webWidget:
             // 获取配置的URL，如果没有则显示默认文本
             let url = widget.config["url"] as? String
-            let showUrl = widget.config["showUrl"] as? Bool ?? false
-            if let url = url, showUrl {
+            if let url = url {
                 text = url
             } else {
                 text = NSLocalizedString("Web Page", comment: "")

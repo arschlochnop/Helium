@@ -284,14 +284,16 @@ struct WidgetPreferencesView: View {
                 }
             case .webWidget:
                 // MARK: URL输入框
-                HStack {
+                VStack(alignment: .leading) {
                     Text(NSLocalizedString("URL", comment:""))
                         .foregroundColor(.primary)
                         .bold()
-                    Spacer()
-                    TextField("https://example.com", text: $text)
-                        .frame(maxWidth: 240)
-                        .multilineTextAlignment(.trailing)
+                    TextEditor(text: $text)
+                        .frame(minHeight: 60)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
                         .onAppear {
                             if let url = widgetID.config["url"] as? String {
                                 text = url

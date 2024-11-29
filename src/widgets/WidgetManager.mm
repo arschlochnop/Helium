@@ -397,57 +397,61 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                 [parsedInfo valueForKey:@"batteryValueType"] ? [[parsedInfo valueForKey:@"batteryValueType"] integerValue] : 0
             );
             break;
+        // case 6:
+        //     // 偷懒方式，添加html富文本渲染,使用输入内容关键字判断，默认使用txt方式
+        //     // 支持多种方式,可选项为show参数. `show=html;https://www.example.com | show=txt;https://www.example.com | show=html;<p>test</p> | https://www.example.com `
+        //     stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
+        //     if ([stringData isEqualToString:@"Unknown"]) {
+        //         widgetString = @"Unknown";
+        //     } else {
+        //         NSArray *parsedComponents = [stringData componentsSeparatedByString:@";"];
+        //         NSString *displayType = @"txt";
+        //         NSString *laststring = parsedComponents.lastObject;
+
+        //         if (parsedComponents.count > 1) {
+        //             for (NSString *component in parsedComponents) {
+        //                 if ([component hasPrefix:@"show="]) {
+        //                     displayType = [component substringFromIndex:5];
+        //                     break;
+        //                 }
+        //             }
+        //         }
+
+        //         // 检查 laststring 是否为 URL 格式
+        //         NSURL *url = [NSURL URLWithString:laststring];
+        //         if (url && url.scheme && url.host) {
+        //             @try {
+        //                 widgetString = [WeatherUtils getDataFrom:laststring];
+        //                 if (!widgetString) {
+        //                     widgetString = laststring;
+        //                 }
+        //             } @catch (NSException *exception) {
+        //                 NSLog(@"Error fetching data from URL: %@", exception);
+        //                 widgetString = @"Error Network";
+        //             }
+        //         } else {
+        //             widgetString = laststring;
+        //         }
+
+        //         if ([displayType isEqualToString:@"html"]) {
+        //             // 解析 HTML
+        //             NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
+        //             NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
+        //             NSError *error;
+        //             NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
+
+        //             if (htmlString) {
+        //                 [mutableString appendAttributedString:htmlString];
+        //             } else {
+        //                 [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString: widgetString]];
+        //                 NSLog(@"Error parsing HTML: %@", error.localizedDescription);
+        //             }
+        //         }
+        //     }
+        //     break;
         case 6:
-            // 偷懒方式，添加html富文本渲染,使用输入内容关键字判断，默认使用txt方式
-            // 支持多种方式,可选项为show参数. `show=html;https://www.example.com | show=txt;https://www.example.com | show=html;<p>test</p> | https://www.example.com `
-            stringData = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
-            if ([stringData isEqualToString:@"Unknown"]) {
-                widgetString = @"Unknown";
-            } else {
-                NSArray *parsedComponents = [stringData componentsSeparatedByString:@";"];
-                NSString *displayType = @"txt";
-                NSString *laststring = parsedComponents.lastObject;
-
-                if (parsedComponents.count > 1) {
-                    for (NSString *component in parsedComponents) {
-                        if ([component hasPrefix:@"show="]) {
-                            displayType = [component substringFromIndex:5];
-                            break;
-                        }
-                    }
-                }
-
-                // 检查 laststring 是否为 URL 格式
-                NSURL *url = [NSURL URLWithString:laststring];
-                if (url && url.scheme && url.host) {
-                    @try {
-                        widgetString = [WeatherUtils getDataFrom:laststring];
-                        if (!widgetString) {
-                            widgetString = laststring;
-                        }
-                    } @catch (NSException *exception) {
-                        NSLog(@"Error fetching data from URL: %@", exception);
-                        widgetString = @"Error Network";
-                    }
-                } else {
-                    widgetString = laststring;
-                }
-
-                if ([displayType isEqualToString:@"html"]) {
-                    // 解析 HTML
-                    NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
-                    NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
-                    NSError *error;
-                    NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
-
-                    if (htmlString) {
-                        [mutableString appendAttributedString:htmlString];
-                    } else {
-                        [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString: widgetString]];
-                        NSLog(@"Error parsing HTML: %@", error.localizedDescription);
-                    }
-                }
-            }
+            // Text
+            widgetString = [parsedInfo valueForKey:@"text"] ? [parsedInfo valueForKey:@"text"] : @"Unknown";
             break;
         case 7:
             // Current Capacity
@@ -518,7 +522,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             // 不添加任何内容
             break;
     }
-    if (widgetString && parsedID != 6 && parsedID != 10) {
+    if (widgetString && parsedID != 10) {
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\n" withString:@"\n"];
         widgetString = [widgetString stringByReplacingOccurrencesOfString:@"\\t" withString:@"\t"];
         [
