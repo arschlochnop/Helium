@@ -141,6 +141,29 @@ static void ReloadHUD
     [rootViewController updateViewConstraints];
 }
 
+#pragma mark - HUDRootViewController
+
+/**
+ * HUDRootViewController类的实现
+ */
+@implementation HUDRootViewController {
+    NSMutableDictionary *_userDefaults;           // 用户默认设置
+    NSMutableArray <NSLayoutConstraint *> *_constraints;  // 布局约束数组
+    FBSOrientationObserver *_orientationObserver; // 屏幕方向观察器
+
+    // 视图对象数组
+    NSMutableArray <UIVisualEffectView *> *_blurViews;      // 模糊效果视图数组
+    NSMutableArray <UILabel *> *_labelViews;                // 标签视图数组
+    NSMutableArray <AnyBackdropView *> *_backdropViews;     // 背景视图数组
+    NSMutableArray <UILabel *> *_maskLabelViews;           // 遮罩标签视图数组
+
+    UIView *_contentView;                         // 内容主视图
+    UIInterfaceOrientation _orientation;          // 当前屏幕方向
+
+    UIView *_horizontalLine;                      // 水平参考线
+    UIView *_verticalLine;                        // 垂直参考线
+}
+
 /**
  * 处理截图事件
  */
@@ -164,29 +187,6 @@ static void ReloadHUD
             [self resumeLoopTimer];
         });
     });
-}
-
-#pragma mark - HUDRootViewController
-
-/**
- * HUDRootViewController类的实现
- */
-@implementation HUDRootViewController {
-    NSMutableDictionary *_userDefaults;           // 用户默认设置
-    NSMutableArray <NSLayoutConstraint *> *_constraints;  // 布局约束数组
-    FBSOrientationObserver *_orientationObserver; // 屏幕方向观察器
-
-    // 视图对象数组
-    NSMutableArray <UIVisualEffectView *> *_blurViews;      // 模糊效果视图数组
-    NSMutableArray <UILabel *> *_labelViews;                // 标签视图数组
-    NSMutableArray <AnyBackdropView *> *_backdropViews;     // 背景视图数组
-    NSMutableArray <UILabel *> *_maskLabelViews;           // 遮罩标签视图数组
-
-    UIView *_contentView;                         // 内容主视图
-    UIInterfaceOrientation _orientation;          // 当前屏幕方向
-
-    UIView *_horizontalLine;                      // 水平参考线
-    UIView *_verticalLine;                        // 垂直参考线
 }
 
 /**
