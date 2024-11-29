@@ -106,6 +106,30 @@ static void ReloadHUD
 }
 
 /**
+ * 添加日志写入辅助函数
+ */
+static void WriteDebugLog(NSString *message) {
+    @synchronized([NSFileHandle class]) {
+        NSString *logPath = @"/tmp/helium_debug.log";
+        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+
+        if (!fileHandle) {
+            [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+        }
+
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
+        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+
+        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
+        [fileHandle seekToEndOfFile];
+        [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
+        [fileHandle closeFile];
+    }
+}
+
+/**
  * 处理截图事件的通知回调
  * 当用户进行截图时触发
  */
@@ -116,16 +140,33 @@ static void UserDidTakeScreenshot
  const void *object,
  CFDictionaryRef userInfo)
 {
+    // 写入调试日志
+    WriteDebugLog(@"Screenshot notification received");
+
     HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
+    if (!rootViewController) {
+        WriteDebugLog(@"Error: rootViewController is nil");
+        return;
+    }
+    WriteDebugLog(@"UserDidTakeScreenshot is called hide %d", [rootViewController hideWidgetsInScreenshot]);
+    // 检查是否需要在截图时隐藏
+    if (![rootViewController hideWidgetsInScreenshot]) {
+        WriteDebugLog(@"hideWidgetsInScreenshot is disabled, ignoring screenshot");
+        return;
+    }
 
     // 立即隐藏视图
-    [rootViewController.view setHidden:YES];
-    [rootViewController pauseLoopTimer];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        WriteDebugLog(@"Hiding view and pausing timer");
+        [rootViewController.view setHidden:YES];
+        [rootViewController pauseLoopTimer];
 
-    // 延迟1秒后重新显示
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [rootViewController.view setHidden:NO];
-        [rootViewController resumeLoopTimer];
+        // 延迟1秒后重新显示
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            WriteDebugLog(@"Showing view and resuming timer");
+            [rootViewController.view setHidden:NO];
+            [rootViewController resumeLoopTimer];
+        });
     });
 }
 
@@ -351,7 +392,7 @@ static void UserDidTakeScreenshot
 }
 
 /**
- * 检查当前是否为横向屏幕方向
+ * 检查当前是否为横向幕方向
  */
 - (BOOL) isLandscapeOrientation
 {
@@ -362,6 +403,16 @@ static void UserDidTakeScreenshot
         isLandscape = UIInterfaceOrientationIsLandscape(_orientation);
     }
     return isLandscape;
+}
+
+/**
+ * 获取截图时是否隐藏小部件的设置
+ */
+- (BOOL) hideWidgetsInScreenshot
+{
+    [self loadUserDefaults:NO];
+    NSNumber *hide = [_userDefaults objectForKey: @"hideWidgetsInScreenshot"];
+    return hide ? [hide boolValue] : NO; // 默认为YES保持向后兼容
 }
 
 #pragma mark - Initialization and Deallocation
@@ -802,7 +853,7 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
 
 /**
  * 更新屏幕方向
- * 根据���户默认设置和屏幕方向，更新小部件的显示状态
+ * 根据用户默认设置和屏幕方向，更新小部件的显示状态
  */
 - (void)updateOrientation:(UIInterfaceOrientation)orientation animateWithDuration:(NSTimeInterval)duration
 {
