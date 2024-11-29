@@ -363,7 +363,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
 {
     NSString *widgetString;
     NSString *sfSymbolName;
-    NSString *stringData;
+    // NSString *stringData;
     NSTextAttachment *imageAttachment;
     switch (parsedID) {
         case 1:
