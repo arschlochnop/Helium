@@ -67,14 +67,14 @@ static void SpringBoardLockStatusChanged
     if ([lockState isEqualToString:@NOTIFY_UI_LOCKSTATE])
     {
         mach_port_t sbsPort = SBSSpringBoardServerPort();
-
+        WriteDebugLog(@"SpringBoardLockStatusChanged sbsPort: %d", sbsPort);
         if (sbsPort == MACH_PORT_NULL)
             return;
 
         BOOL isLocked;
         BOOL isPasscodeSet;
         SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
-
+        WriteDebugLog(@"SpringBoardLockStatusChanged isLocked: %d, isPasscodeSet: %d", isLocked, isPasscodeSet);
         if (!isLocked)
         {
             [rootViewController.view setHidden:NO];
