@@ -13,6 +13,12 @@ NS_ASSUME_NONNULL_BEGIN
  * @return BOOL 是否在截图时隐藏小部件
  */
 - (BOOL)hideWidgetsInScreenshot;
+
+/**
+ * 处理截图事件
+ * @param notification 截图通知对象
+ */
+- (void)handleScreenshot:(NSNotification *)notification;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -600,7 +600,7 @@ static void ReloadHUD
 
 /**
  * 视图安全区域插入改变
- * 在视图安全区域插入改变后更新视���的约束
+ * 在视图安全区域插入改变后更新视的约束
  */
 - (void)viewSafeAreaInsetsDidChange
 {
