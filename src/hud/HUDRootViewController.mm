@@ -142,42 +142,26 @@ static void ReloadHUD
 }
 
 /**
- * 处理截图事件的通知回调
- * 当用户进行截图时触发
+ * 处理截图事件
  */
-static void UserDidTakeScreenshot
-(CFNotificationCenterRef center,
- void *observer,
- CFStringRef name,
- const void *object,
- CFDictionaryRef userInfo)
+- (void)handleScreenshot:(NSNotification *)notification
 {
-    // 写入调试日志
     WriteDebugLog(@"Screenshot notification received");
 
-    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    if (!rootViewController) {
-        WriteDebugLog(@"Error: rootViewController is nil");
-        return;
-    }
-    WriteDebugLog(@"UserDidTakeScreenshot is called hide %d", [rootViewController hideWidgetsInScreenshot]);
-    // 检查是否需要在截图时隐藏
-    if (![rootViewController hideWidgetsInScreenshot]) {
+    if (![self hideWidgetsInScreenshot]) {
         WriteDebugLog(@"hideWidgetsInScreenshot is disabled, ignoring screenshot");
         return;
     }
 
-    // 立即隐藏视图
     dispatch_async(dispatch_get_main_queue(), ^{
         WriteDebugLog(@"Hiding view and pausing timer");
-        [rootViewController.view setHidden:YES];
-        [rootViewController pauseLoopTimer];
+        [self.view setHidden:YES];
+        [self pauseLoopTimer];
 
-        // 延迟1秒后重新显示
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             WriteDebugLog(@"Showing view and resuming timer");
-            [rootViewController.view setHidden:NO];
-            [rootViewController resumeLoopTimer];
+            [self.view setHidden:NO];
+            [self resumeLoopTimer];
         });
     });
 }
@@ -246,14 +230,11 @@ static void UserDidTakeScreenshot
         CFNotificationSuspensionBehaviorCoalesce
     );
 
-    CFNotificationCenterAddObserver(
-        darwinCenter,
-        (__bridge const void *)self,
-        UserDidTakeScreenshot,
-        CFSTR("UIApplicationUserDidTakeScreenshotNotification"),
-        NULL,
-        CFNotificationSuspensionBehaviorCoalesce
-    );
+    // 注册截图通知
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleScreenshot:)
+                                               name:UIApplicationUserDidTakeScreenshotNotification
+                                             object:nil];
 }
 
 #pragma mark - User Default Stuff
@@ -404,7 +385,7 @@ static void UserDidTakeScreenshot
 }
 
 /**
- * 检查当前是否为横向��方向
+ * 检查当前是否为横向方向
  */
 - (BOOL) isLandscapeOrientation
 {
@@ -619,7 +600,7 @@ static void UserDidTakeScreenshot
 
 /**
  * 视图安全区域插入改变
- * 在视图安全区域插入改变后更新视图的约束
+ * 在视图安全区域插入改变后更新视���的约束
  */
 - (void)viewSafeAreaInsetsDidChange
 {
