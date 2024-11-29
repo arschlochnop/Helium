@@ -108,7 +108,7 @@ static void ReloadHUD
 /**
  * 添加日志写入辅助函数
  */
-static void WriteDebugLog(NSString *message) {
+static void WriteDebugLog(NSString *format, ...) {
     @synchronized([NSFileHandle class]) {
         NSString *logPath = @"/tmp/helium_debug.log";
         NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
@@ -117,6 +117,11 @@ static void WriteDebugLog(NSString *message) {
             [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
             fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
         }
+
+        va_list args;
+        va_start(args, format);
+        NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
+        va_end(args);
 
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
