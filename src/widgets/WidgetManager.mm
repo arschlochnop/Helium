@@ -1,6 +1,6 @@
 //
 //  WidgetManager.m
-//  
+//
 //
 //  Created by lemin on 10/6/23.
 //
@@ -18,7 +18,7 @@
 #import "../extensions/FontUtils.h"
 #import "../extensions/WeatherUtils.h"
 
-// Thanks to: https://github.com/lwlsw/NetworkSpeed13
+// 感谢: https://github.com/lwlsw/NetworkSpeed13
 
 #define KILOBITS 1000
 #define MEGABITS 1000000
@@ -29,17 +29,17 @@
 #define SHOW_ALWAYS 1
 // #define INLINE_SEPARATOR "\t"
 
-// #pragma mark - Formatting Methods
+// #pragma mark - 格式化方法
 // static unsigned char getSeparator(NSMutableAttributedString *currentAttributed)
 // {
 //     return [[currentAttributed string] isEqualToString:@""] ? *"" : *"\t";
 // }
 
-#pragma mark - Widget-specific Variables
-// MARK: 0 - Date Widget
+#pragma mark - 小组件特定变量
+// MARK: 0 - 日期小组件
 static NSDateFormatter *formatter = nil;
 
-// MARK: Net Speed Widget
+// MARK: 网络速度小组件
 static uint8_t DATAUNIT = 0;
 
 typedef struct {
@@ -54,6 +54,12 @@ static NSAttributedString *attributedUploadPrefix2 = nil;
 static NSAttributedString *attributedDownloadPrefix2 = nil;
 
 #pragma mark - Date Widget
+/**
+ * 格式化日期
+ * @param dateFormat 日期格式
+ * @param dateLocale 日期区域
+ * @return 格式化后的日期字符串
+ */
 static NSString* formattedDate(NSString *dateFormat, NSString *dateLocale)
 {
     if (!formatter) {
@@ -67,13 +73,17 @@ static NSString* formattedDate(NSString *dateFormat, NSString *dateLocale)
 }
 
 #pragma mark - Net Speed Widgets
+/**
+ * 获取上传和下载字节数
+ * @return UpDownBytes结构体，包含上传和下载字节数
+ */
 static UpDownBytes getUpDownBytes()
 {
     struct ifaddrs *ifa_list = 0, *ifa;
     UpDownBytes upDownBytes;
     upDownBytes.inputBytes = 0;
     upDownBytes.outputBytes = 0;
-    
+
     if (getifaddrs(&ifa_list) == -1) return upDownBytes;
 
     for (ifa = ifa_list; ifa; ifa = ifa->ifa_next)
@@ -81,7 +91,7 @@ static UpDownBytes getUpDownBytes()
         /* Skip invalid interfaces */
         if (ifa->ifa_name == NULL || ifa->ifa_addr == NULL || ifa->ifa_data == NULL)
             continue;
-        
+
         /* Skip interfaces that are not link level interfaces */
         if (AF_LINK != ifa->ifa_addr->sa_family)
             continue;
@@ -89,64 +99,79 @@ static UpDownBytes getUpDownBytes()
         /* Skip interfaces that are not up or running */
         if (!(ifa->ifa_flags & IFF_UP) && !(ifa->ifa_flags & IFF_RUNNING))
             continue;
-        
+
         /* Skip interfaces that are not ethernet or cellular */
         if (strncmp(ifa->ifa_name, "en", 2) && strncmp(ifa->ifa_name, "pdp_ip", 6))
             continue;
-        
+
         struct if_data *if_data = (struct if_data *)ifa->ifa_data;
-        
+
         upDownBytes.inputBytes += if_data->ifi_ibytes;
         upDownBytes.outputBytes += if_data->ifi_obytes;
     }
-    
+
     freeifaddrs(ifa_list);
     return upDownBytes;
 }
 
+/**
+ * 格式化速度
+ * @param bytes 字节数
+ * @param minUnit 最小单位
+ * @return 格式化后的速度字符串
+ */
 static NSString* formattedSpeed(uint64_t bytes, NSInteger minUnit)
 {
     if (0 == DATAUNIT) {
         // Get min units first
-        if (minUnit == 1 && bytes < KILOBYTES) return @"0 KB/s";
-        else if (minUnit == 2 && bytes < MEGABYTES) return @"0 MB/s";
-        else if (minUnit == 3 && bytes < GIGABYTES) return @"0 GB/s";
+        if (minUnit == 1 && bytes < KILOBYTES) return @"0 KB/s";
+        else if (minUnit == 2 && bytes < MEGABYTES) return @"0 MB/s";
+        else if (minUnit == 3 && bytes < GIGABYTES) return @"0 GB/s";
 
-        if (bytes < KILOBYTES) return [NSString stringWithFormat:@"%.0f B/s", (double)bytes];
-        else if (bytes < MEGABYTES) return [NSString stringWithFormat:@"%.0f KB/s", (double)bytes / KILOBYTES];
-        else if (bytes < GIGABYTES) return [NSString stringWithFormat:@"%.2f MB/s", (double)bytes / MEGABYTES];
-        else return [NSString stringWithFormat:@"%.2f GB/s", (double)bytes / GIGABYTES];
+        if (bytes < KILOBYTES) return [NSString stringWithFormat:@"%.0f B/s", (double)bytes];
+        else if (bytes < MEGABYTES) return [NSString stringWithFormat:@"%.0f KB/s", (double)bytes / KILOBYTES];
+        else if (bytes < GIGABYTES) return [NSString stringWithFormat:@"%.2f MB/s", (double)bytes / MEGABYTES];
+        else return [NSString stringWithFormat:@"%.2f GB/s", (double)bytes / GIGABYTES];
     } else {
         // Get min units first
-        if (minUnit == 1 && bytes < KILOBITS) return @"0 Kb/s";
-        else if (minUnit == 2 && bytes < MEGABITS) return @"0 Mb/s";
-        else if (minUnit == 3 && bytes < GIGABITS) return @"0 Gb/s";
+        if (minUnit == 1 && bytes < KILOBITS) return @"0 Kb/s";
+        else if (minUnit == 2 && bytes < MEGABITS) return @"0 Mb/s";
+        else if (minUnit == 3 && bytes < GIGABITS) return @"0 Gb/s";
 
-        if (bytes < KILOBITS) return [NSString stringWithFormat:@"%.0f b/s", (double)bytes];
-        else if (bytes < MEGABITS) return [NSString stringWithFormat:@"%.0f Kb/s", (double)bytes / KILOBITS];
-        else if (bytes < GIGABITS) return [NSString stringWithFormat:@"%.2f Mb/s", (double)bytes / MEGABITS];
-        else return [NSString stringWithFormat:@"%.2f Gb/s", (double)bytes / GIGABITS];
+        if (bytes < KILOBITS) return [NSString stringWithFormat:@"%.0f b/s", (double)bytes];
+        else if (bytes < MEGABITS) return [NSString stringWithFormat:@"%.0f Kb/s", (double)bytes / KILOBITS];
+        else if (bytes < GIGABITS) return [NSString stringWithFormat:@"%.2f Mb/s", (double)bytes / MEGABITS];
+        else return [NSString stringWithFormat:@"%.2f Gb/s", (double)bytes / GIGABITS];
     }
 }
 
+/**
+ * 格式化带有属性的速度字符串
+ * @param isUp 是否为上传
+ * @param speedIcon 速度图标
+ * @param minUnit 最小单位
+ * @param hideWhenZero 是否在速度为零时隐藏
+ * @param fontSize 字体大小
+ * @return 带有属性的速度字符串
+ */
 static NSAttributedString* formattedAttributedSpeedString(BOOL isUp, NSInteger speedIcon, NSInteger minUnit, BOOL hideWhenZero, double fontSize)
 {
     @autoreleasepool {
         if (!attributedUploadPrefix)
-            attributedUploadPrefix = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"▲"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
+            attributedUploadPrefix = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"▲"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
         if (!attributedDownloadPrefix)
-            attributedDownloadPrefix = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"▼"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
+            attributedDownloadPrefix = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"▼"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
         if (!attributedUploadPrefix2)
-            attributedUploadPrefix2 = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"↑"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
+            attributedUploadPrefix2 = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"↑"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
         if (!attributedDownloadPrefix2)
-            attributedDownloadPrefix2 = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"↓"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
-        
+            attributedDownloadPrefix2 = [[NSAttributedString alloc] initWithString:[[NSString stringWithUTF8String:"↓"] stringByAppendingString:@" "] attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:fontSize]}];
+
         NSMutableAttributedString* mutableString = [[NSMutableAttributedString alloc] init];
-        
+
         UpDownBytes upDownBytes = getUpDownBytes();
-        
+
         uint64_t diff;
-        
+
         if (isUp) {
             if (upDownBytes.outputBytes > prevOutputBytes)
                 diff = upDownBytes.outputBytes - prevOutputBytes;
@@ -160,10 +185,10 @@ static NSAttributedString* formattedAttributedSpeedString(BOOL isUp, NSInteger s
                 diff = 0;
             prevInputBytes = upDownBytes.inputBytes;
         }
-        
+
         if (DATAUNIT == 1)
             diff *= 8;
-        
+
         NSString *speedString = formattedSpeed(diff, minUnit);
         if (!hideWhenZero || ![speedString hasPrefix:@"0"]) {
             if (isUp)
@@ -172,12 +197,16 @@ static NSAttributedString* formattedAttributedSpeedString(BOOL isUp, NSInteger s
                 [mutableString appendAttributedString:(speedIcon == 0 ? attributedDownloadPrefix : attributedDownloadPrefix2)];
             [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString:speedString]];
         }
-        
+
         return [mutableString copy];
     }
 }
 
 #pragma mark - Battery Temp Widget
+/**
+ * 获取电池信息
+ * @return 电池信息字典
+ */
 NSDictionary* getBatteryInfo()
 {
     CFDictionaryRef matching = IOServiceMatching("IOPMPowerSource");
@@ -189,6 +218,11 @@ NSDictionary* getBatteryInfo()
     return dict;
 }
 
+/**
+ * 格式化温度
+ * @param useFahrenheit 是否使用华氏度
+ * @return 格式化后的温度字符串
+ */
 static NSString* formattedTemp(BOOL useFahrenheit)
 {
     NSDictionary *batteryInfo = getBatteryInfo();
@@ -215,6 +249,11 @@ static NSString* formattedTemp(BOOL useFahrenheit)
  2 = Regular Amperage
  3 = Charge Cycles
  */
+/**
+ * 格式化电池信息
+ * @param valueType 值类型
+ * @return 格式化后的电池信息字符串
+ */
 static NSString* formattedBattery(NSInteger valueType)
 {
     NSDictionary *batteryInfo = getBatteryInfo();
@@ -223,25 +262,25 @@ static NSString* formattedBattery(NSInteger valueType)
             // Watts
             int watts = [batteryInfo[@"AdapterDetails"][@"Watts"] longLongValue];
             if (watts) {
-                return [NSString stringWithFormat: @"%d W", watts];
+                return [NSString stringWithFormat: @"%d W", watts];
             } else {
-                return @"0 W";
+                return @"0 W";
             }
         } else if (valueType == 1) {
             // Charging Current
             double current = [batteryInfo[@"AdapterDetails"][@"Current"] doubleValue];
             if (current) {
-                return [NSString stringWithFormat: @"%.0f mA", current];
+                return [NSString stringWithFormat: @"%.0f mA", current];
             } else {
-                return @"0 mA";
+                return @"0 mA";
             }
         } else if (valueType == 2) {
             // Regular Amperage
             double amps = [batteryInfo[@"Amperage"] doubleValue];
             if (amps) {
-                return [NSString stringWithFormat: @"%.0f mA", amps];
+                return [NSString stringWithFormat: @"%.0f mA", amps];
             } else {
-                return @"0 mA";
+                return @"0 mA";
             }
         } else if (valueType == 3) {
             // Charge Cycles
@@ -254,6 +293,11 @@ static NSString* formattedBattery(NSInteger valueType)
 }
 
 #pragma mark - Current Capacity Widget
+/**
+ * 格式化当前电量
+ * @param showPercentage 是否显示百分比
+ * @return 格式化后的当前电量字符串
+ */
 static NSString* formattedCurrentCapacity(BOOL showPercentage)
 {
     NSDictionary *batteryInfo = getBatteryInfo();
@@ -268,6 +312,11 @@ static NSString* formattedCurrentCapacity(BOOL showPercentage)
 }
 
 #pragma mark - Charging Symbol Widget
+/**
+ * 格式化充电符号
+ * @param filled 是否填充
+ * @return 充电符号字符串
+ */
 static NSString* formattedChargingSymbol(BOOL filled)
 {
     [[UIDevice currentDevice] setBatteryMonitoringEnabled: YES];
@@ -284,20 +333,30 @@ static NSString* formattedChargingSymbol(BOOL filled)
 
 #pragma mark - Main Widget Functions
 /*
- Widget Identifiers:
- 0 = None
- 1 = Date
- 2 = Network Up/Down
- 3 = Device Temp
- 4 = Battery Detail
- 5 = Time
- 6 = Text | html
- 7 = Battery Percentage
- 8 = Charging Symbol
- 9 = Weather
+ 小组件标识符:
+ 0 = 无
+ 1 = 日期
+ 2 = 网络上传/下载
+ 3 = 设备温度
+ 4 = 电池详情
+ 5 = 时间
+ 6 = 文本 | html
+ 7 = 电池百分比
+ 8 = 充电符号
+ 9 = 天气
 
  TODO:
  - Music Visualizer
+ */
+/**
+ * 格式化解析后的信息
+ * @param parsedInfo 解析后的信息字典
+ * @param parsedID 解析后的标识符
+ * @param mutableString 可变属性字符串
+ * @param fontSize 字体大小
+ * @param textColor 文字颜色
+ * @param apiKey API密钥
+ * @param dateLocale 日期区域
  */
 void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAttributedString *mutableString, double fontSize, UIColor *textColor, NSString *apiKey, NSString *dateLocale)
 {
@@ -347,7 +406,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                 NSArray *parsedComponents = [stringData componentsSeparatedByString:@";"];
                 NSString *displayType = @"txt";
                 NSString *laststring = parsedComponents.lastObject;
-                
+
                 if (parsedComponents.count > 1) {
                     for (NSString *component in parsedComponents) {
                         if ([component hasPrefix:@"show="]) {
@@ -356,29 +415,37 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
                         }
                     }
                 }
-                
+
                 // 检查 laststring 是否为 URL 格式
                 NSURL *url = [NSURL URLWithString:laststring];
                 if (url && url.scheme && url.host) {
-                    widgetString = [WeatherUtils getDataFrom:laststring];
+                    @try {
+                        widgetString = [WeatherUtils getDataFrom:laststring];
+                        if (!widgetString) {
+                            widgetString = laststring;
+                        }
+                    } @catch (NSException *exception) {
+                        NSLog(@"Error fetching data from URL: %@", exception);
+                        widgetString = @"Error Network";
+                    }
                 } else {
                     widgetString = laststring;
                 }
-                
+
                 if ([displayType isEqualToString:@"html"]) {
                     // 解析 HTML
                     NSData *data = [widgetString dataUsingEncoding:NSUTF8StringEncoding];
                     NSDictionary *options = @{NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType};
                     NSError *error;
                     NSAttributedString *htmlString = [[NSAttributedString alloc] initWithData:data options:options documentAttributes:nil error:&error];
-                    
+
                     if (htmlString) {
                         [mutableString appendAttributedString:htmlString];
                     } else {
                         [mutableString appendAttributedString:[[NSAttributedString alloc] initWithString: widgetString]];
                         NSLog(@"Error parsing HTML: %@", error.localizedDescription);
                     }
-                } 
+                }
             }
             break;
         case 7:
@@ -416,7 +483,7 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
             }
             break;
         default:
-            // do not add anything
+            // 不添加任何内容
             break;
     }
     if (widgetString && parsedID != 6) {
@@ -428,11 +495,20 @@ void formatParsedInfo(NSDictionary *parsedInfo, NSInteger parsedID, NSMutableAtt
     }
 }
 
+/**
+ * 格式化带有属性的字符串
+ * @param identifiers 小组件标识符数组
+ * @param fontSize 字体大小
+ * @param textColor 文字颜色
+ * @param apiKey API密钥
+ * @param dateLocale 日期区域
+ * @return 带有属性的字符串
+ */
 NSAttributedString* formattedAttributedString(NSArray *identifiers, double fontSize, UIColor *textColor, NSString *apiKey, NSString *dateLocale)
 {
     @autoreleasepool {
         NSMutableAttributedString* mutableString = [[NSMutableAttributedString alloc] init];
-        
+
         if (identifiers) {
             for (id idInfo in identifiers) {
                 NSDictionary *parsedInfo = idInfo;
@@ -442,7 +518,8 @@ NSAttributedString* formattedAttributedString(NSArray *identifiers, double fontS
         } else {
             return nil;
         }
-        
+
         return [mutableString copy];
     }
 }
+

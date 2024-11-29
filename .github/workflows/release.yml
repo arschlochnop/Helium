@@ -2,8 +2,9 @@ name: Build Helium Release
 
 on:
   push:
-    tags:
-      - "v*.*.**"
+    branches:
+      - main
+      - master
 
 env:
   THEOS: ''
@@ -66,7 +67,7 @@ jobs:
         with:
           path: Helium
           submodules: recursive
-  
+
       - name: Setup build environment
         run: |
           echo "Available SDKs: $(find $THEOS/sdks -name "*.sdk" -maxdepth 1 -print)"
@@ -100,10 +101,14 @@ jobs:
 
       - name: Upload release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/v')
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: build time ${{ env.logT }}
+          tag_name: release-${{ env.msT }}
+          name: Release ${{ env.logT }}
+          body: Build time ${{ env.logT }}
+          draft: false
+          prerelease: false
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
             ${{ github.workspace }}/Helium/build/Helium.tipa
