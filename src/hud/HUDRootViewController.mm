@@ -22,6 +22,42 @@
 #define NOTIFY_LS_APP_CHANGED  "com.apple.LaunchServices.ApplicationsChanged"
 
 /**
+ * 日志写入辅助函数声明
+ * @param format 格式化字符串
+ * @param ... 可变参数
+ */
+static void WriteDebugLog(NSString *format, ...) NS_FORMAT_FUNCTION(1,2);
+
+/**
+ * 添加日志写入辅助函数
+ */
+static void WriteDebugLog(NSString *format, ...) {
+    @synchronized([NSFileHandle class]) {
+        NSString *logPath = @"/tmp/helium_debug.log";
+        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+
+        if (!fileHandle) {
+            [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+        }
+
+        va_list args;
+        va_start(args, format);
+        NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
+        va_end(args);
+
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
+        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+
+        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
+        [fileHandle seekToEndOfFile];
+        [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
+        [fileHandle closeFile];
+    }
+}
+
+/**
  * 处理应用程序安装状态变化的通知回调
  * 当应用被安装或卸载时触发
  */
@@ -103,35 +139,6 @@ static void ReloadHUD
     [rootViewController reloadUserDefaults];
     [rootViewController resetLoopTimer];
     [rootViewController updateViewConstraints];
-}
-
-/**
- * 添加日志写入辅助函数
- */
-static void WriteDebugLog(NSString *format, ...) {
-    @synchronized([NSFileHandle class]) {
-        NSString *logPath = @"/tmp/helium_debug.log";
-        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
-
-        if (!fileHandle) {
-            [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
-        }
-
-        va_list args;
-        va_start(args, format);
-        NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
-        va_end(args);
-
-        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
-        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
-
-        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
-        [fileHandle seekToEndOfFile];
-        [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
-        [fileHandle closeFile];
-    }
 }
 
 /**
@@ -397,7 +404,7 @@ static void UserDidTakeScreenshot
 }
 
 /**
- * 检查当前是否为横向幕方向
+ * 检查当前是否为横向��方向
  */
 - (BOOL) isLandscapeOrientation
 {
