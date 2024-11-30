@@ -186,16 +186,26 @@ static void WriteDebugLog(NSString *message) {
                                                  name:UIApplicationUserDidTakeScreenshotNotification
                                                object:nil];
 
-    // 添加 Darwin 通知中心的截图监听
-    WriteDebugLog(@"开始注册 Darwin 截图通知监听");
-    CFNotificationCenterAddObserver(
-        darwinCenter,
-        (__bridge const void *)self,
-        handleScreenshot,
-        CFSTR("com.apple.screencapture.screenshot"),
-        NULL,
-        CFNotificationSuspensionBehaviorCoalesce
-    );
+    // 尝试多个可能的通知名称
+    NSArray *screenshotNotifications = @[
+        @"com.apple.screencapture.screenshot",
+        @"user.screencapture",
+        @"com.apple.screenShot",
+        @"com.apple.UIKit.screenshot",
+        @"com.apple.ScreenShot.screenshot"
+    ];
+
+    for (NSString *notificationName in screenshotNotifications) {
+        WriteDebugLog([NSString stringWithFormat:@"注册 Darwin 截图通知: %@", notificationName]);
+        CFNotificationCenterAddObserver(
+            darwinCenter,
+            (__bridge const void *)self,
+            handleScreenshot,
+            (__bridge CFStringRef)notificationName,
+            NULL,
+            CFNotificationSuspensionBehaviorCoalesce
+        );
+    }
 
     // 添加测试通知
     WriteDebugLog(@"开始注册应用激活测试通知监听");
@@ -842,7 +852,7 @@ static void handleScreenshot
  CFDictionaryRef userInfo)
 {
     HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    WriteDebugLog(@"收到 Darwin 截图通知！");
+    WriteDebugLog([NSString stringWithFormat:@"收到 Darwin 截图通知！通知名称: %@", (__bridge NSString *)name]);
 
     if (!rootViewController.view) {
         WriteDebugLog(@"Darwin 通知中视图为空");
