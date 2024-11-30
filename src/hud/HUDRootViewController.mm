@@ -164,6 +164,8 @@ static void ReloadHUD
 
     UIView *_horizontalLine;                      // 水平参考线
     UIView *_verticalLine;                        // 垂直参考线
+
+    BOOL _notificationsRegistered;  // 添加标志避免重复注册
 }
 
 /**
@@ -199,56 +201,31 @@ static void ReloadHUD
  */
 - (void)registerNotifications
 {
+    if (_notificationsRegistered) {
+        WriteDebugLog(@"通知已注册，跳过重复注册");
+        return;
+    }
+
     WriteDebugLog(@"开始注册通知");
-
-    int token;
-    notify_register_dispatch(NOTIFY_RELOAD_HUD, &token, dispatch_get_main_queue(), ^(int token) {
-        WriteDebugLog(@"NOTIFY_RELOAD_HUD callback triggered");
-        [self reloadUserDefaults];
-        [self resetLoopTimer];
-        [self updateViewConstraints];
-    });
-
-    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
-
-    CFNotificationCenterAddObserver(
-        darwinCenter,
-        (__bridge const void *)self,
-        LaunchServicesApplicationStateChanged,
-        CFSTR(NOTIFY_LS_APP_CHANGED),
-        NULL,
-        CFNotificationSuspensionBehaviorCoalesce
-    );
-
-    CFNotificationCenterAddObserver(
-        darwinCenter,
-        (__bridge const void *)self,
-        SpringBoardLockStatusChanged,
-        CFSTR(NOTIFY_UI_LOCKSTATE),
-        NULL,
-        CFNotificationSuspensionBehaviorCoalesce
-    );
-
-    CFNotificationCenterAddObserver(
-        darwinCenter,
-        (__bridge const void *)self,
-        ReloadHUD,
-        CFSTR(NOTIFY_RELOAD_HUD),
-        NULL,
-        CFNotificationSuspensionBehaviorCoalesce
-    );
 
     // 注册截图通知
     WriteDebugLog(@"正在通过 Darwin 通知中心注册截图通知");
 
+    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
+    if (!darwinCenter) {
+        WriteDebugLog(@"错误：无法获取 Darwin 通知中心");
+        return;
+    }
+
     CFNotificationCenterAddObserver(darwinCenter,
                                   (__bridge const void *)self,
                                   ScreenshotCallback,
-                                  CFSTR("com.apple.screenShot"),
+                                  CFSTR("com.apple.screencapture.screenshot"),  // 尝试使用不同的通知名
                                   NULL,
                                   CFNotificationSuspensionBehaviorDeliverImmediately);
 
     WriteDebugLog(@"截图通知注册完成");
+    _notificationsRegistered = YES;
 }
 
 #pragma mark - User Default Stuff
@@ -459,11 +436,20 @@ static void ReloadHUD
 - (void)dealloc
 {
     WriteDebugLog(@"正在清理资源，移除观察者");
+
+    // 移除 Darwin 通知观察者
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
-    CFNotificationCenterRemoveObserver(darwinCenter,
-                                     (__bridge const void *)self,
-                                     CFSTR("com.apple.screenShot"),
-                                     NULL);
+    if (darwinCenter) {
+        CFNotificationCenterRemoveObserver(darwinCenter,
+                                         (__bridge const void *)self,
+                                         CFSTR("com.apple.screencapture.screenshot"),
+                                         NULL);
+    }
+
+    // 移除应用生命周期通知观察者
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+    WriteDebugLog(@"观察者移除完成");
 }
 
 #pragma mark - HUD UI Main Functions
@@ -476,12 +462,11 @@ static void ReloadHUD
     [super viewDidLoad];
     WriteDebugLog(@"视图加载完成");
 
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    if (!_notificationsRegistered) {
         [self registerNotifications];
         [self registerAppLifecycleNotifications];
         WriteDebugLog(@"所有通知注册完成");
-    });
+    }
 
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
@@ -968,17 +953,21 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
  */
 - (void)registerAppLifecycleNotifications
 {
-    WriteDebugLog(@"Registering app lifecycle notifications");
+    WriteDebugLog(@"正在注册应用生命周期通知");
 
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(applicationDidBecomeActive:)
-                                               name:UIApplicationDidBecomeActiveNotification
-                                             object:nil];
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(applicationWillResignActive:)
-                                               name:UIApplicationWillResignActiveNotification
-                                             object:nil];
+    [center addObserver:self
+               selector:@selector(applicationDidBecomeActive:)
+                   name:UIApplicationDidBecomeActiveNotification
+                 object:nil];
+
+    [center addObserver:self
+               selector:@selector(applicationWillResignActive:)
+                   name:UIApplicationWillResignActiveNotification
+                 object:nil];
+
+    WriteDebugLog(@"应用生命周期通知注册完成");
 }
 
 // 添加 Darwin notification 回调
@@ -988,7 +977,7 @@ static void ScreenshotCallback(CFNotificationCenterRef center,
                              const void *object,
                              CFDictionaryRef userInfo)
 {
-    WriteDebugLog(@"收到系统截图通知");
+    WriteDebugLog(@"收到系统截图通知，通知名称：%@", (__bridge NSString *)name);
 
     HUDRootViewController *controller = (__bridge HUDRootViewController *)observer;
     if (![controller hideWidgetsInScreenshot]) {
