@@ -20,198 +20,184 @@
 
 #define NOTIFY_UI_LOCKSTATE    "com.apple.springboard.lockstate"
 #define NOTIFY_LS_APP_CHANGED  "com.apple.LaunchServices.ApplicationsChanged"
+#define SCREENSHOT_HIDE_DURATION 1.0
 
-/**
- * 日志写入辅助函数声明
- * @param format 格式化字符串
- * @param ... 可变参数
- */
-static void WriteDebugLog(NSString *format, ...) NS_FORMAT_FUNCTION(1,2);
+static void LaunchServicesApplicationStateChanged
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
+{
+    /* Application installed or uninstalled */
 
-/**
- * 添加日志写入辅助函数
- */
-static void WriteDebugLog(NSString *format, ...) {
-    @synchronized([NSFileHandle class]) {
-        NSString *logPath = @"/tmp/helium_debug.log";
-        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+    BOOL isAppInstalled = NO;
 
-        if (!fileHandle) {
-            [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+    for (LSApplicationProxy *app in [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allApplications])
+    {
+        if ([app.applicationIdentifier isEqualToString:@"com.leemin.helium"])
+        {
+            isAppInstalled = YES;
+            break;
         }
+    }
 
-        va_list args;
-        va_start(args, format);
-        NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
-        va_end(args);
-
-        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
-        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
-
-        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
-        [fileHandle seekToEndOfFile];
-        [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
-        [fileHandle closeFile];
+    if (!isAppInstalled)
+    {
+        UIApplication *app = [UIApplication sharedApplication];
+        [app terminateWithSuccess];
     }
 }
 
-#pragma mark - HUDRootViewController
-
-/**
- * HUDRootViewController类的实现
- */
-@implementation HUDRootViewController {
-    NSMutableDictionary *_userDefaults;
-    NSMutableArray <NSLayoutConstraint *> *_constraints;
-    FBSOrientationObserver *_orientationObserver;
-
-    NSMutableArray <UIVisualEffectView *> *_blurViews;
-    NSMutableArray <UILabel *> *_labelViews;
-    NSMutableArray <AnyBackdropView *> *_backdropViews;
-    NSMutableArray <UILabel *> *_maskLabelViews;
-
-    UIView *_contentView;
-    UIInterfaceOrientation _orientation;
-
-    UIView *_horizontalLine;
-    UIView *_verticalLine;
-
-    BOOL _notificationsRegistered;
-}
-
-/**
- * 处理截图事件
- */
-- (void)handleScreenshot:(NSNotification *)notification
+static void SpringBoardLockStatusChanged
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
 {
-    WriteDebugLog(@"handleScreenshot called with notification: %@", notification);
-    WriteDebugLog(@"Notification name: %@", notification.name);
-    WriteDebugLog(@"Notification object: %@", notification.object);
-    WriteDebugLog(@"Notification userInfo: %@", notification.userInfo);
-
-    if (![self hideWidgetsInScreenshot]) {
-        WriteDebugLog(@"hideWidgetsInScreenshot is disabled, ignoring screenshot");
-        return;
-    }
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        WriteDebugLog(@"Hiding view and pausing timer");
-        [self.view setHidden:YES];
-        [self pauseLoopTimer];
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            WriteDebugLog(@"Showing view and resuming timer");
-            [self.view setHidden:NO];
-            [self resumeLoopTimer];
-        });
-    });
-}
-
-/**
- * 注册通知
- */
-- (void)registerNotifications
-{
-    if (_notificationsRegistered) {
-        WriteDebugLog(@"通知已注册，跳过重复注册");
-        return;
-    }
-
-    WriteDebugLog(@"开始注册通知");
-
-    // 注册截图通知
-    WriteDebugLog(@"正在通过 Darwin 通知中心注册截图通知");
-
-    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
-    if (!darwinCenter) {
-        WriteDebugLog(@"错误：无法获取 Darwin 通知中心");
-        return;
-    }
-
-    // 注册截图通知
-    CFNotificationCenterAddObserver(darwinCenter,
-                                  (__bridge const void *)self,
-                                  ScreenshotCallback,
-                                  CFSTR("com.apple.screencapture.screenshot"),
-                                  NULL,
-                                  CFNotificationSuspensionBehaviorDeliverImmediately);
-
-    // 注册锁屏状态变化通知
-    int lockStateToken;
-    notify_register_dispatch(NOTIFY_UI_LOCKSTATE, &lockStateToken, dispatch_get_main_queue(), ^(int token) {
+    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
+    NSString *lockState = (__bridge NSString *)name;
+    if ([lockState isEqualToString:@NOTIFY_UI_LOCKSTATE])
+    {
         mach_port_t sbsPort = SBSSpringBoardServerPort();
-        WriteDebugLog(@"锁屏状态改变，SpringBoard端口: %d", sbsPort);
+
         if (sbsPort == MACH_PORT_NULL)
             return;
 
         BOOL isLocked;
         BOOL isPasscodeSet;
         SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
-        WriteDebugLog(@"锁屏状态: %@, 密码设置: %@",
-                     isLocked ? @"已锁定" : @"未锁定",
-                     isPasscodeSet ? @"已设置" : @"未设置");
+
         if (!isLocked)
         {
-            [self.view setHidden:NO];
-            [self resumeLoopTimer];
+            [rootViewController.view setHidden:NO];
+            [rootViewController resumeLoopTimer];
         }
         else
         {
-            [self pauseLoopTimer];
-            [self.view setHidden:YES];
+            [rootViewController pauseLoopTimer];
+            [rootViewController.view setHidden:YES];
         }
+    }
+}
+
+static void ReloadHUD
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
+{
+    // NSLog(@"boom ReloadHUD");
+    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
+    // [rootViewController createWidgetSets];
+    [rootViewController reloadUserDefaults];
+    [rootViewController resetLoopTimer];
+    [rootViewController updateViewConstraints];
+}
+
+// 实现 handleScreenshot: 方法
+- (void)handleScreenshot:(NSNotification *)notification {
+    if (!self.view) {
+        return;
+    }
+
+    [self.view setHidden:YES];
+    [self pauseLoopTimer];
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!self.view) {
+            return;
+        }
+        [self.view setHidden:NO];
+        [self resumeLoopTimer];
     });
+}
 
-    // 注册应用状态变化通知
-    int appStateToken;
-    notify_register_dispatch(NOTIFY_LS_APP_CHANGED, &appStateToken, dispatch_get_main_queue(), ^(int token) {
-        BOOL isAppInstalled = NO;
-        for (LSApplicationProxy *app in [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allApplications])
-        {
-            if ([app.applicationIdentifier isEqualToString:@"com.leemin.helium"])
-            {
-                isAppInstalled = YES;
-                break;
-            }
-        }
+#pragma mark - HUDRootViewController
 
-        if (!isAppInstalled)
-        {
-            WriteDebugLog(@"应用已被卸载，准备退出");
-            UIApplication *app = [UIApplication sharedApplication];
-            [app terminateWithSuccess];
-        }
-    });
+@implementation HUDRootViewController {
+    NSMutableDictionary *_userDefaults;
+    NSMutableArray <NSLayoutConstraint *> *_constraints;
+    FBSOrientationObserver *_orientationObserver;
+    // view object arrays
+    NSMutableArray <UIVisualEffectView *> *_blurViews;
+    NSMutableArray <UILabel *> *_labelViews;
 
-    // 注册重新加载通知
-    int reloadToken;
-    notify_register_dispatch(NOTIFY_RELOAD_HUD, &reloadToken, dispatch_get_main_queue(), ^(int token) {
-        WriteDebugLog(@"收到重新加载通知");
+    NSMutableArray <AnyBackdropView *> *_backdropViews;
+    NSMutableArray <UILabel *> *_maskLabelViews;
+
+    UIView *_contentView;
+
+    UIInterfaceOrientation _orientation;
+
+    UIView *_horizontalLine;
+    UIView *_verticalLine;
+}
+
+- (void)registerNotifications
+{
+    int token;
+    notify_register_dispatch(NOTIFY_RELOAD_HUD, &token, dispatch_get_main_queue(), ^(int token) {
         [self reloadUserDefaults];
         [self resetLoopTimer];
         [self updateViewConstraints];
     });
 
-    WriteDebugLog(@"所有通知注册完成");
-    _notificationsRegistered = YES;
+    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
+
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        LaunchServicesApplicationStateChanged,
+        CFSTR(NOTIFY_LS_APP_CHANGED),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
+
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        SpringBoardLockStatusChanged,
+        CFSTR(NOTIFY_UI_LOCKSTATE),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
+
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        ReloadHUD,
+        CFSTR(NOTIFY_RELOAD_HUD),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
+
+    // CFNotificationCenterAddObserver(
+    //     darwinCenter,
+    //     (__bridge const void *)self,
+    //     handleScreenshot,
+    //     CFSTR("com.apple.screencapture.screenshot"),
+    //     NULL,
+    //     CFNotificationSuspensionBehaviorCoalesce
+    // );
+    // 添加观察者，监听屏幕截图通知
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleScreenshot:)
+                                                 name:UIApplicationUserDidTakeScreenshotNotification
+                                               object:nil];
 }
+
 
 #pragma mark - User Default Stuff
 
-/**
- * 加载用户默认设置
- */
 - (void)loadUserDefaults:(BOOL)forceReload
 {
     if (forceReload || !_userDefaults)
         _userDefaults = [[NSDictionary dictionaryWithContentsOfFile:USER_DEFAULTS_PATH] mutableCopy] ?: [NSMutableDictionary dictionary];
 }
 
-/**
- * 重新加载用户默认设置
- */
 - (void) reloadUserDefaults
 {
     [self loadUserDefaults: YES];
@@ -305,9 +291,6 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 检查是否启用调试边框
- */
 - (BOOL) debugBorder
 {
     [self loadUserDefaults:NO];
@@ -315,9 +298,6 @@ static void WriteDebugLog(NSString *format, ...) {
     return mode ? [mode boolValue] : NO;
 }
 
-/**
- * 获取API密钥
- */
 - (NSString*) apiKey
 {
     [self loadUserDefaults:NO];
@@ -325,9 +305,6 @@ static void WriteDebugLog(NSString *format, ...) {
     return apiKey ? apiKey : @"";
 }
 
-/**
- * 获取日期区域设置
- */
 - (NSString*) dateLocale
 {
     [self loadUserDefaults:NO];
@@ -335,9 +312,6 @@ static void WriteDebugLog(NSString *format, ...) {
     return locale ? locale : @"en_US";
 }
 
-/**
- * 获取小部件属性
- */
 - (NSArray*) widgetProperties
 {
     [self loadUserDefaults: NO];
@@ -345,9 +319,6 @@ static void WriteDebugLog(NSString *format, ...) {
     return properties;
 }
 
-/**
- * 检查当前是否为横向方向
- */
 - (BOOL) isLandscapeOrientation
 {
     BOOL isLandscape;
@@ -359,21 +330,8 @@ static void WriteDebugLog(NSString *format, ...) {
     return isLandscape;
 }
 
-/**
- * 获取截图时是否隐藏小部件的设置
- */
-- (BOOL) hideWidgetsInScreenshot
-{
-    [self loadUserDefaults:NO];
-    NSNumber *hide = [_userDefaults objectForKey: @"hideWidgetsInScreenshot"];
-    return hide ? [hide boolValue] : NO; // 默认为YES保持向后兼容
-}
-
 #pragma mark - Initialization and Deallocation
 
-/**
- * 初始化方法
- */
 - (instancetype)init
 {
     self = [super init];
@@ -400,44 +358,17 @@ static void WriteDebugLog(NSString *format, ...) {
     return self;
 }
 
-/**
- * 释放方法
- */
 - (void)dealloc
 {
-    WriteDebugLog(@"正在清理资源，移除观察者");
-
-    // 移除 Darwin 通知观察者
-    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
-    if (darwinCenter) {
-        CFNotificationCenterRemoveObserver(darwinCenter,
-                                         (__bridge const void *)self,
-                                         CFSTR("com.apple.screencapture.screenshot"),
-                                         NULL);
-    }
-
-    // 移除应用生命周期通知观察者
+    [_orientationObserver invalidate];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-
-    WriteDebugLog(@"观察者移除完成");
 }
 
 #pragma mark - HUD UI Main Functions
 
-/**
- * 视图加载完成
- */
 - (void) viewDidLoad
 {
     [super viewDidLoad];
-    WriteDebugLog(@"视图加载完成");
-
-    if (!_notificationsRegistered) {
-        [self registerNotifications];
-        [self registerAppLifecycleNotifications];
-        WriteDebugLog(@"所有通知注册完成");
-    }
-
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
     _contentView.backgroundColor = [UIColor clearColor];
@@ -460,26 +391,16 @@ static void WriteDebugLog(NSString *format, ...) {
 
     [self createWidgetSetsView];
     notify_post(NOTIFY_RELOAD_HUD);
-    [self registerNotifications];
-    [self registerAppLifecycleNotifications];
-    WriteDebugLog(@"All notifications registered");
 }
 
-/**
- * 视图已出现
- */
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    WriteDebugLog(@"视图已显示");
     notify_post(NOTIFY_LAUNCHED_HUD);
 }
 
 #pragma mark - Timer and View Updating
 
-/**
- * 重置循环定时器
- */
 - (void)resetLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -516,9 +437,6 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 更新标签
- */
 - (void) updateLabel:(UILabel *) label updateMaskLabel:(UILabel *) maskLabel backdropView:(AnyBackdropView *) backdropView identifiers:(NSArray *) identifiers fontSize:(double) fontSize autoResizes:(BOOL) autoResizes width:(CGFloat) width height:(CGFloat) height
 {
 #if DEBUG
@@ -541,25 +459,16 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 使用大小适合的标签
- */
 - (void) useSizeThatFitsZeroWithLabel:(UILabel *)label{
     CGSize size = [label sizeThatFits:CGSizeZero];
     label.frame = CGRectMake(label.frame.origin.x, label.frame.origin.y, size.width, size.height);
 }
 
-/**
- * 使用自定义大小适合的标签
- */
 - (void) useSizeThatFitsCustomWithLabel:(UILabel *)label width:(CGFloat) width height:(CGFloat) height{
     // CGSize size = [label sizeThatFits:CGSizeMake(width, height)];
     label.frame = CGRectMake(label.frame.origin.x, label.frame.origin.y, width, height);
 }
 
-/**
- * 暂停循环定时器
- */
 - (void)pauseLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -571,9 +480,6 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 恢复循环定时器
- */
 - (void)resumeLoopTimer
 {
     NSArray *widgetProps = [self widgetProperties];
@@ -585,20 +491,12 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 视图安全区域插入改变
- * 在视图安全区域插入改变后更新视的约束
- */
 - (void)viewSafeAreaInsetsDidChange
 {
     [super viewSafeAreaInsetsDidChange];
     [self updateViewConstraints];
 }
 
-/**
- * 创建小部件设置视图
- * 根据用户默认设置，创建小部件设置视图
- */
 - (void)createWidgetSetsView
 {
     // MARK: Create the Widgets
@@ -644,10 +542,6 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 更新视图约束
- * 根据用户默认设置和小部件的属性设置，更新视图的约束
- */
 - (void)updateViewConstraints
 {
     [NSLayoutConstraint deactivateConstraints:_constraints];
@@ -798,10 +692,6 @@ static void WriteDebugLog(NSString *format, ...) {
     [super updateViewConstraints];
 }
 
-/**
- * 更新屏幕方向
- * 根据用户默认设置和屏幕方向，更新小部件的显示状态
- */
 static inline CGFloat orientationAngle(UIInterfaceOrientation orientation)
 {
     switch (orientation) {
@@ -816,10 +706,6 @@ static inline CGFloat orientationAngle(UIInterfaceOrientation orientation)
     }
 }
 
-/**
- * 更新屏幕方向
- * 根据用户默认设置和屏幕方向，更新小部件的显示状态
- */
 static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRect bounds)
 {
     switch (orientation) {
@@ -831,10 +717,6 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     }
 }
 
-/**
- * 更新屏幕方向
- * 根据用户默认设置和屏幕方向，更新小部件的显示状态
- */
 - (void)updateOrientation:(UIInterfaceOrientation)orientation animateWithDuration:(NSTimeInterval)duration
 {
     __weak typeof(self) weakSelf = self;
@@ -905,67 +787,6 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     } completion:^(BOOL finished) {
         [weakSelf.view setHidden:NO];
     }];
-}
-
-// 添加应用生命周期通知处理
-- (void)applicationDidBecomeActive:(NSNotification *)notification
-{
-    WriteDebugLog(@"应用程序已激活");
-}
-
-- (void)applicationWillResignActive:(NSNotification *)notification
-{
-    WriteDebugLog(@"应用程序即将进入非活动状态");
-}
-
-/**
- * 注册应用生命周期通知
- */
-- (void)registerAppLifecycleNotifications
-{
-    WriteDebugLog(@"正在注册应用生命周期通知");
-
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-
-    [center addObserver:self
-               selector:@selector(applicationDidBecomeActive:)
-                   name:UIApplicationDidBecomeActiveNotification
-                 object:nil];
-
-    [center addObserver:self
-               selector:@selector(applicationWillResignActive:)
-                   name:UIApplicationWillResignActiveNotification
-                 object:nil];
-
-    WriteDebugLog(@"应用生命周期通知注册完成");
-}
-
-// 添加 Darwin notification 回调
-static void ScreenshotCallback(CFNotificationCenterRef center,
-                             void *observer,
-                             CFStringRef name,
-                             const void *object,
-                             CFDictionaryRef userInfo)
-{
-    WriteDebugLog(@"收到系统截图通知，通知名称：%@", (__bridge NSString *)name);
-
-    HUDRootViewController *controller = (__bridge HUDRootViewController *)observer;
-    if (![controller hideWidgetsInScreenshot]) {
-        WriteDebugLog(@"截图隐藏功能未启用，忽略本次截图");
-        return;
-    }
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        WriteDebugLog(@"正在隐藏界面并暂停计时器");
-        [controller.view setHidden:YES];
-        [controller pauseLoopTimer];
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            WriteDebugLog(@"正在显示界面并恢复计时器");
-            [controller.view setHidden:NO];
-            [controller resumeLoopTimer];
-        });
-    });
 }
 
 @end
