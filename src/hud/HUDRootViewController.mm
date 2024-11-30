@@ -97,25 +97,9 @@ static void ReloadHUD
     [rootViewController updateViewConstraints];
 }
 
-// 实现 handleScreenshot: 方法
-- (void)handleScreenshot:(NSNotification *)notification {
-    if (!self.view) {
-        return;
-    }
-
-    [self.view setHidden:YES];
-    [self pauseLoopTimer];
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        if (!self.view) {
-            return;
-        }
-        [self.view setHidden:NO];
-        [self resumeLoopTimer];
-    });
-}
-
-#pragma mark - HUDRootViewController
+@interface HUDRootViewController ()
+- (void)handleScreenshot:(NSNotification *)notification;
+@end
 
 @implementation HUDRootViewController {
     NSMutableDictionary *_userDefaults;
@@ -787,6 +771,23 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     } completion:^(BOOL finished) {
         [weakSelf.view setHidden:NO];
     }];
+}
+
+- (void)handleScreenshot:(NSNotification *)notification {
+    if (!self.view) {
+        return;
+    }
+
+    [self.view setHidden:YES];
+    [self pauseLoopTimer];
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!self.view) {
+            return;
+        }
+        [self.view setHidden:NO];
+        [self resumeLoopTimer];
+    });
 }
 
 @end

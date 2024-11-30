@@ -7,7 +7,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)pauseLoopTimer;
 - (void)resumeLoopTimer;
 - (void)reloadUserDefaults;
-- (void)handleScreenshot:(NSNotification *)notification;
 @end
 
 NS_ASSUME_NONNULL_END
