@@ -169,7 +169,7 @@ static void ReloadHUD
  */
 - (void)handleScreenshot:(NSNotification *)notification
 {
-    WriteDebugLog(@"Screenshot notification received");
+    WriteDebugLog(@"handleScreenshot called with notification: %@", notification);
 
     if (![self hideWidgetsInScreenshot]) {
         WriteDebugLog(@"hideWidgetsInScreenshot is disabled, ignoring screenshot");
@@ -194,8 +194,11 @@ static void ReloadHUD
  */
 - (void)registerNotifications
 {
+    WriteDebugLog(@"Starting to register notifications");
+
     int token;
     notify_register_dispatch(NOTIFY_RELOAD_HUD, &token, dispatch_get_main_queue(), ^(int token) {
+        WriteDebugLog(@"NOTIFY_RELOAD_HUD callback triggered");
         [self reloadUserDefaults];
         [self resetLoopTimer];
         [self updateViewConstraints];
@@ -231,10 +234,12 @@ static void ReloadHUD
     );
 
     // 注册截图通知
+    WriteDebugLog(@"Registering screenshot notification");
     [[NSNotificationCenter defaultCenter] addObserver:self
                                            selector:@selector(handleScreenshot:)
                                                name:UIApplicationUserDidTakeScreenshotNotification
                                              object:nil];
+    WriteDebugLog(@"Screenshot notification registered");
 }
 
 #pragma mark - User Default Stuff
@@ -444,7 +449,8 @@ static void ReloadHUD
  */
 - (void)dealloc
 {
-    [_orientationObserver invalidate];
+    WriteDebugLog(@"dealloc called, removing observers");
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 #pragma mark - HUD UI Main Functions
@@ -455,6 +461,8 @@ static void ReloadHUD
 - (void) viewDidLoad
 {
     [super viewDidLoad];
+    WriteDebugLog(@"viewDidLoad called");
+
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
     _contentView.backgroundColor = [UIColor clearColor];
@@ -477,6 +485,9 @@ static void ReloadHUD
 
     [self createWidgetSetsView];
     notify_post(NOTIFY_RELOAD_HUD);
+    [self registerNotifications];
+    [self registerAppLifecycleNotifications];
+    WriteDebugLog(@"All notifications registered");
 }
 
 /**
@@ -485,6 +496,7 @@ static void ReloadHUD
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
+    WriteDebugLog(@"viewDidAppear called");
     notify_post(NOTIFY_LAUNCHED_HUD);
 }
 
@@ -918,6 +930,35 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     } completion:^(BOOL finished) {
         [weakSelf.view setHidden:NO];
     }];
+}
+
+// 添加应用生命周期通知处理
+- (void)applicationDidBecomeActive:(NSNotification *)notification
+{
+    WriteDebugLog(@"Application did become active");
+}
+
+- (void)applicationWillResignActive:(NSNotification *)notification
+{
+    WriteDebugLog(@"Application will resign active");
+}
+
+/**
+ * 注册应用生命周期通知
+ */
+- (void)registerAppLifecycleNotifications
+{
+    WriteDebugLog(@"Registering app lifecycle notifications");
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(applicationDidBecomeActive:)
+                                               name:UIApplicationDidBecomeActiveNotification
+                                             object:nil];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(applicationWillResignActive:)
+                                               name:UIApplicationWillResignActiveNotification
+                                             object:nil];
 }
 
 @end
