@@ -142,9 +142,6 @@ static void WriteDebugLog(NSString *message) {
 
     UIView *_horizontalLine;
     UIView *_verticalLine;
-
-    MPVolumeView *volumeView;
-    UIView *volumeViewPlaceholder;
 }
 
 - (void)registerNotifications
@@ -405,7 +402,6 @@ static void WriteDebugLog(NSString *message) {
     WriteDebugLog(@"控制器即将释放，清理观察者");
     [_orientationObserver invalidate];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [volumeView removeFromSuperview];
 }
 
 #pragma mark - HUD UI Main Functions
@@ -906,11 +902,6 @@ static void handleScreenshot
                                            selector:@selector(handleVolumeChange:)
                                                name:@"AVSystemController_SystemVolumeDidChangeNotification"
                                              object:nil];
-
-    // 创建隐藏的音量视图来接收音量事件
-    volumeView = [[MPVolumeView alloc] initWithFrame:CGRectMake(-100, -100, 1, 1)];
-    [volumeView setHidden:YES];
-    [self.view addSubview:volumeView];
 
     // 监控物理按键事件
     if (@available(iOS 13.0, *)) {
