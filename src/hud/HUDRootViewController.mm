@@ -103,14 +103,16 @@ static void SpringBoardLockStatusChanged
     if ([lockState isEqualToString:@NOTIFY_UI_LOCKSTATE])
     {
         mach_port_t sbsPort = SBSSpringBoardServerPort();
-        WriteDebugLog(@"SpringBoardLockStatusChanged sbsPort: %d", sbsPort);
+        WriteDebugLog(@"锁屏状态改变，SpringBoard端口: %d", sbsPort);
         if (sbsPort == MACH_PORT_NULL)
             return;
 
         BOOL isLocked;
         BOOL isPasscodeSet;
         SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
-        WriteDebugLog(@"SpringBoardLockStatusChanged isLocked: %d, isPasscodeSet: %d", isLocked, isPasscodeSet);
+        WriteDebugLog(@"锁屏状态: %@, 密码设置: %@",
+                     isLocked ? @"已锁定" : @"未锁定",
+                     isPasscodeSet ? @"已设置" : @"未设置");
         if (!isLocked)
         {
             [rootViewController.view setHidden:NO];
@@ -197,7 +199,7 @@ static void ReloadHUD
  */
 - (void)registerNotifications
 {
-    WriteDebugLog(@"Starting to register notifications");
+    WriteDebugLog(@"开始注册通知");
 
     int token;
     notify_register_dispatch(NOTIFY_RELOAD_HUD, &token, dispatch_get_main_queue(), ^(int token) {
@@ -237,31 +239,16 @@ static void ReloadHUD
     );
 
     // 注册截图通知
-    WriteDebugLog(@"Registering screenshot notification");
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    WriteDebugLog(@"正在通过 Darwin 通知中心注册截图通知");
 
-    // 添加通知中心的观察者信息调试
-    WriteDebugLog(@"Current notification center: %@", center);
+    CFNotificationCenterAddObserver(darwinCenter,
+                                  (__bridge const void *)self,
+                                  ScreenshotCallback,
+                                  CFSTR("com.apple.screenShot"),
+                                  NULL,
+                                  CFNotificationSuspensionBehaviorDeliverImmediately);
 
-    // 尝试同时注册多个相关通知
-    [center addObserver:self
-               selector:@selector(handleScreenshot:)
-                   name:UIApplicationUserDidTakeScreenshotNotification
-                 object:nil];
-
-    [center addObserver:self
-               selector:@selector(handleScreenshot:)
-                   name:@"UIApplicationUserDidTakeScreenshotNotification"
-                 object:nil];
-
-    WriteDebugLog(@"Screenshot notification registered with name: %@", UIApplicationUserDidTakeScreenshotNotification);
-
-    // 测试手动发送通知
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        WriteDebugLog(@"Sending test screenshot notification");
-        [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationUserDidTakeScreenshotNotification
-                                                          object:nil];
-    });
+    WriteDebugLog(@"截图通知注册完成");
 }
 
 #pragma mark - User Default Stuff
@@ -471,8 +458,12 @@ static void ReloadHUD
  */
 - (void)dealloc
 {
-    WriteDebugLog(@"dealloc called, removing observers");
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    WriteDebugLog(@"正在清理资源，移除观察者");
+    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
+    CFNotificationCenterRemoveObserver(darwinCenter,
+                                     (__bridge const void *)self,
+                                     CFSTR("com.apple.screenShot"),
+                                     NULL);
 }
 
 #pragma mark - HUD UI Main Functions
@@ -483,7 +474,14 @@ static void ReloadHUD
 - (void) viewDidLoad
 {
     [super viewDidLoad];
-    WriteDebugLog(@"viewDidLoad called");
+    WriteDebugLog(@"视图加载完成");
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        [self registerNotifications];
+        [self registerAppLifecycleNotifications];
+        WriteDebugLog(@"所有通知注册完成");
+    });
 
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
@@ -518,7 +516,7 @@ static void ReloadHUD
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    WriteDebugLog(@"viewDidAppear called");
+    WriteDebugLog(@"视图已显示");
     notify_post(NOTIFY_LAUNCHED_HUD);
 }
 
@@ -957,12 +955,12 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
 // 添加应用生命周期通知处理
 - (void)applicationDidBecomeActive:(NSNotification *)notification
 {
-    WriteDebugLog(@"Application did become active");
+    WriteDebugLog(@"应用程序已激活");
 }
 
 - (void)applicationWillResignActive:(NSNotification *)notification
 {
-    WriteDebugLog(@"Application will resign active");
+    WriteDebugLog(@"应用程序即将进入非活动状态");
 }
 
 /**
@@ -981,6 +979,34 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
                                            selector:@selector(applicationWillResignActive:)
                                                name:UIApplicationWillResignActiveNotification
                                              object:nil];
+}
+
+// 添加 Darwin notification 回调
+static void ScreenshotCallback(CFNotificationCenterRef center,
+                             void *observer,
+                             CFStringRef name,
+                             const void *object,
+                             CFDictionaryRef userInfo)
+{
+    WriteDebugLog(@"收到系统截图通知");
+
+    HUDRootViewController *controller = (__bridge HUDRootViewController *)observer;
+    if (![controller hideWidgetsInScreenshot]) {
+        WriteDebugLog(@"截图隐藏功能未启用，忽略本次截图");
+        return;
+    }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        WriteDebugLog(@"正在隐藏界面并暂停计时器");
+        [controller.view setHidden:YES];
+        [controller pauseLoopTimer];
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            WriteDebugLog(@"正在显示界面并恢复计时器");
+            [controller.view setHidden:NO];
+            [controller resumeLoopTimer];
+        });
+    });
 }
 
 @end
