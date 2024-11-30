@@ -57,115 +57,28 @@ static void WriteDebugLog(NSString *format, ...) {
     }
 }
 
-/**
- * 处理应用程序安装状态变化的通知回调
- * 当应用被安装或卸载时触发
- */
-static void LaunchServicesApplicationStateChanged
-(CFNotificationCenterRef center,
- void *observer,
- CFStringRef name,
- const void *object,
- CFDictionaryRef userInfo)
-{
-    /* 检查应用是否已安装 */
-    BOOL isAppInstalled = NO;
-
-    for (LSApplicationProxy *app in [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allApplications])
-    {
-        if ([app.applicationIdentifier isEqualToString:@"com.leemin.helium"])
-        {
-            isAppInstalled = YES;
-            break;
-        }
-    }
-
-    if (!isAppInstalled)
-    {
-        UIApplication *app = [UIApplication sharedApplication];
-        [app terminateWithSuccess];
-    }
-}
-
-/**
- * 处理设备锁屏状态变化的通知回调
- * 当设备锁屏或解锁时触发
- */
-static void SpringBoardLockStatusChanged
-(CFNotificationCenterRef center,
- void *observer,
- CFStringRef name,
- const void *object,
- CFDictionaryRef userInfo)
-{
-    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    NSString *lockState = (__bridge NSString *)name;
-    if ([lockState isEqualToString:@NOTIFY_UI_LOCKSTATE])
-    {
-        mach_port_t sbsPort = SBSSpringBoardServerPort();
-        WriteDebugLog(@"锁屏状态改变，SpringBoard端口: %d", sbsPort);
-        if (sbsPort == MACH_PORT_NULL)
-            return;
-
-        BOOL isLocked;
-        BOOL isPasscodeSet;
-        SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
-        WriteDebugLog(@"锁屏状态: %@, 密码设置: %@",
-                     isLocked ? @"已锁定" : @"未锁定",
-                     isPasscodeSet ? @"已设置" : @"未设置");
-        if (!isLocked)
-        {
-            [rootViewController.view setHidden:NO];
-            [rootViewController resumeLoopTimer];
-        }
-        else
-        {
-            [rootViewController pauseLoopTimer];
-            [rootViewController.view setHidden:YES];
-        }
-    }
-}
-
-/**
- * 重新加载 HUD 界面的通知回调
- * 当需要刷新 HUD 显示时触发
- */
-static void ReloadHUD
-(CFNotificationCenterRef center,
- void *observer,
- CFStringRef name,
- const void *object,
- CFDictionaryRef userInfo)
-{
-    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    [rootViewController reloadUserDefaults];
-    [rootViewController resetLoopTimer];
-    [rootViewController updateViewConstraints];
-}
-
 #pragma mark - HUDRootViewController
 
 /**
  * HUDRootViewController类的实现
  */
 @implementation HUDRootViewController {
-    NSMutableDictionary *_userDefaults;           // 用户默认设置
-    NSMutableArray <NSLayoutConstraint *> *_constraints;  // 布局约束数组
-    FBSOrientationObserver *_orientationObserver; // 屏幕方向观察器
+    NSMutableDictionary *_userDefaults;
+    NSMutableArray <NSLayoutConstraint *> *_constraints;
+    FBSOrientationObserver *_orientationObserver;
 
-    // 视图对象数组
-    NSMutableArray <UIVisualEffectView *> *_blurViews;      // 模糊效果视图数组
-    NSMutableArray <UILabel *> *_labelViews;                // 标签视图数组
-    NSMutableArray <AnyBackdropView *> *_backdropViews;     // 背景视图数组
-    NSMutableArray <UILabel *> *_maskLabelViews;           // 遮罩标签视图数组
+    NSMutableArray <UIVisualEffectView *> *_blurViews;
+    NSMutableArray <UILabel *> *_labelViews;
+    NSMutableArray <AnyBackdropView *> *_backdropViews;
+    NSMutableArray <UILabel *> *_maskLabelViews;
 
-    UIView *_contentView;                         // 内容主视图
-    UIInterfaceOrientation _orientation;          // 当前屏幕方向
+    UIView *_contentView;
+    UIInterfaceOrientation _orientation;
 
-    UIView *_horizontalLine;                      // 水平参考线
-    UIView *_verticalLine;                        // 垂直参考线
+    UIView *_horizontalLine;
+    UIView *_verticalLine;
 
-    BOOL _notificationsRegistered;  // 添加标志避免重复注册
+    BOOL _notificationsRegistered;
 }
 
 /**
