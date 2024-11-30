@@ -186,6 +186,17 @@ static void WriteDebugLog(NSString *message) {
                                                  name:UIApplicationUserDidTakeScreenshotNotification
                                                object:nil];
 
+    // 添加 Darwin 通知中心的截图监听
+    WriteDebugLog(@"开始注册 Darwin 截图通知监听");
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        handleScreenshot,
+        CFSTR("com.apple.screencapture.screenshot"),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
+
     // 添加测试通知
     WriteDebugLog(@"开始注册应用激活测试通知监听");
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -820,6 +831,36 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
 
 - (void)handleTestNotification:(NSNotification *)notification {
     WriteDebugLog(@"收到应用激活测试通知！");
+}
+
+// 添加 Darwin 通知处理函数
+static void handleScreenshot
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
+{
+    HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
+    WriteDebugLog(@"收到 Darwin 截图通知！");
+
+    if (!rootViewController.view) {
+        WriteDebugLog(@"Darwin 通知中视图为空");
+        return;
+    }
+
+    [rootViewController.view setHidden:YES];
+    [rootViewController pauseLoopTimer];
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!rootViewController.view) {
+            WriteDebugLog(@"Darwin 通知延迟回调中视图为空");
+            return;
+        }
+        [rootViewController.view setHidden:NO];
+        [rootViewController resumeLoopTimer];
+        WriteDebugLog(@"Darwin 截图处理完成，视图已重新显示");
+    });
 }
 
 @end
