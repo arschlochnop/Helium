@@ -97,6 +97,28 @@ static void ReloadHUD
     [rootViewController updateViewConstraints];
 }
 
+// 添加日志函数
+static void WriteDebugLog(NSString *message) {
+    static dispatch_queue_t logQueue = dispatch_queue_create("com.leemin.helium.logqueue", DISPATCH_QUEUE_SERIAL);
+
+    dispatch_async(logQueue, ^{
+        NSString *logPath = @"/tmp/helium_debug.log";
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
+        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, message];
+
+        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+        if (!fileHandle) {
+            [[logMessage dataUsingEncoding:NSUTF8StringEncoding] writeToFile:logPath atomically:YES];
+        } else {
+            [fileHandle seekToEndOfFile];
+            [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
+            [fileHandle closeFile];
+        }
+    });
+}
+
 @interface HUDRootViewController ()
 - (void)handleScreenshot:(NSNotification *)notification;
 @end
@@ -158,18 +180,17 @@ static void ReloadHUD
         CFNotificationSuspensionBehaviorCoalesce
     );
 
-    // CFNotificationCenterAddObserver(
-    //     darwinCenter,
-    //     (__bridge const void *)self,
-    //     handleScreenshot,
-    //     CFSTR("com.apple.screencapture.screenshot"),
-    //     NULL,
-    //     CFNotificationSuspensionBehaviorCoalesce
-    // );
-    // 添加观察者，监听屏幕截图通知
+    WriteDebugLog(@"开始注册截图通知监听");
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(handleScreenshot:)
                                                  name:UIApplicationUserDidTakeScreenshotNotification
+                                               object:nil];
+
+    // 添加测试通知
+    WriteDebugLog(@"开始注册应用激活测试通知监听");
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleTestNotification:)
+                                                 name:UIApplicationDidBecomeActiveNotification
                                                object:nil];
 }
 
@@ -344,6 +365,7 @@ static void ReloadHUD
 
 - (void)dealloc
 {
+    WriteDebugLog(@"控制器即将释放，清理观察者");
     [_orientationObserver invalidate];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
@@ -353,6 +375,7 @@ static void ReloadHUD
 - (void) viewDidLoad
 {
     [super viewDidLoad];
+    WriteDebugLog(@"视图加载完成，开始初始化");
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
     _contentView.backgroundColor = [UIColor clearColor];
@@ -774,7 +797,10 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
 }
 
 - (void)handleScreenshot:(NSNotification *)notification {
+    WriteDebugLog(@"收到截图通知！");
+
     if (!self.view) {
+        WriteDebugLog(@"视图为空，退出处理");
         return;
     }
 
@@ -783,11 +809,17 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (!self.view) {
+            WriteDebugLog(@"延迟回调中视图为空");
             return;
         }
         [self.view setHidden:NO];
         [self resumeLoopTimer];
+        WriteDebugLog(@"截图处理完成，视图已重新显示");
     });
+}
+
+- (void)handleTestNotification:(NSNotification *)notification {
+    WriteDebugLog(@"收到应用激活测试通知！");
 }
 
 @end
