@@ -217,14 +217,71 @@ static void ReloadHUD
         return;
     }
 
+    // 注册截图通知
     CFNotificationCenterAddObserver(darwinCenter,
                                   (__bridge const void *)self,
                                   ScreenshotCallback,
-                                  CFSTR("com.apple.screencapture.screenshot"),  // 尝试使用不同的通知名
+                                  CFSTR("com.apple.screencapture.screenshot"),
                                   NULL,
                                   CFNotificationSuspensionBehaviorDeliverImmediately);
 
-    WriteDebugLog(@"截图通知注册完成");
+    // 注册锁屏状态变化通知
+    int lockStateToken;
+    notify_register_dispatch(NOTIFY_UI_LOCKSTATE, &lockStateToken, dispatch_get_main_queue(), ^(int token) {
+        mach_port_t sbsPort = SBSSpringBoardServerPort();
+        WriteDebugLog(@"锁屏状态改变，SpringBoard端口: %d", sbsPort);
+        if (sbsPort == MACH_PORT_NULL)
+            return;
+
+        BOOL isLocked;
+        BOOL isPasscodeSet;
+        SBGetScreenLockStatus(sbsPort, &isLocked, &isPasscodeSet);
+        WriteDebugLog(@"锁屏状态: %@, 密码设置: %@",
+                     isLocked ? @"已锁定" : @"未锁定",
+                     isPasscodeSet ? @"已设置" : @"未设置");
+        if (!isLocked)
+        {
+            [self.view setHidden:NO];
+            [self resumeLoopTimer];
+        }
+        else
+        {
+            [self pauseLoopTimer];
+            [self.view setHidden:YES];
+        }
+    });
+
+    // 注册应用状态变化通知
+    int appStateToken;
+    notify_register_dispatch(NOTIFY_LS_APP_CHANGED, &appStateToken, dispatch_get_main_queue(), ^(int token) {
+        BOOL isAppInstalled = NO;
+        for (LSApplicationProxy *app in [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allApplications])
+        {
+            if ([app.applicationIdentifier isEqualToString:@"com.leemin.helium"])
+            {
+                isAppInstalled = YES;
+                break;
+            }
+        }
+
+        if (!isAppInstalled)
+        {
+            WriteDebugLog(@"应用已被卸载，准备退出");
+            UIApplication *app = [UIApplication sharedApplication];
+            [app terminateWithSuccess];
+        }
+    });
+
+    // 注册重新加载通知
+    int reloadToken;
+    notify_register_dispatch(NOTIFY_RELOAD_HUD, &reloadToken, dispatch_get_main_queue(), ^(int token) {
+        WriteDebugLog(@"收到重新加载通知");
+        [self reloadUserDefaults];
+        [self resetLoopTimer];
+        [self updateViewConstraints];
+    });
+
+    WriteDebugLog(@"所有通知注册完成");
     _notificationsRegistered = YES;
 }
 
