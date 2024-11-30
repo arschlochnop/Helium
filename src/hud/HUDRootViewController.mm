@@ -170,6 +170,9 @@ static void ReloadHUD
 - (void)handleScreenshot:(NSNotification *)notification
 {
     WriteDebugLog(@"handleScreenshot called with notification: %@", notification);
+    WriteDebugLog(@"Notification name: %@", notification.name);
+    WriteDebugLog(@"Notification object: %@", notification.object);
+    WriteDebugLog(@"Notification userInfo: %@", notification.userInfo);
 
     if (![self hideWidgetsInScreenshot]) {
         WriteDebugLog(@"hideWidgetsInScreenshot is disabled, ignoring screenshot");
@@ -235,11 +238,30 @@ static void ReloadHUD
 
     // 注册截图通知
     WriteDebugLog(@"Registering screenshot notification");
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(handleScreenshot:)
-                                               name:UIApplicationUserDidTakeScreenshotNotification
-                                             object:nil];
-    WriteDebugLog(@"Screenshot notification registered");
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+
+    // 添加通知中心的观察者信息调试
+    WriteDebugLog(@"Current notification center: %@", center);
+
+    // 尝试同时注册多个相关通知
+    [center addObserver:self
+               selector:@selector(handleScreenshot:)
+                   name:UIApplicationUserDidTakeScreenshotNotification
+                 object:nil];
+
+    [center addObserver:self
+               selector:@selector(handleScreenshot:)
+                   name:@"UIApplicationUserDidTakeScreenshotNotification"
+                 object:nil];
+
+    WriteDebugLog(@"Screenshot notification registered with name: %@", UIApplicationUserDidTakeScreenshotNotification);
+
+    // 测试手动发送通知
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        WriteDebugLog(@"Sending test screenshot notification");
+        [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationUserDidTakeScreenshotNotification
+                                                          object:nil];
+    });
 }
 
 #pragma mark - User Default Stuff
