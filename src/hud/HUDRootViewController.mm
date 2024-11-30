@@ -1,5 +1,6 @@
 #import <notify.h>
 #import <objc/runtime.h>
+#import <MediaPlayer/MediaPlayer.h>
 
 #import "HUDRootViewController.h"
 #import "AnyBackdropView.h"
@@ -119,8 +120,9 @@ static void WriteDebugLog(NSString *message) {
     });
 }
 
-@interface HUDRootViewController ()
+@interface HUDRootViewController () <UIGestureRecognizerDelegate>
 - (void)handleScreenshot:(NSNotification *)notification;
+- (void)setupVolumeButtonMonitor;
 @end
 
 @implementation HUDRootViewController {
@@ -140,6 +142,9 @@ static void WriteDebugLog(NSString *message) {
 
     UIView *_horizontalLine;
     UIView *_verticalLine;
+
+    MPVolumeView *volumeView;
+    UIView *volumeViewPlaceholder;
 }
 
 - (void)registerNotifications
@@ -186,17 +191,17 @@ static void WriteDebugLog(NSString *message) {
                                                  name:UIApplicationUserDidTakeScreenshotNotification
                                                object:nil];
 
-    // 尝试多个可能的通知名称
+    // SpringBoard 相关的截图通知
     NSArray *screenshotNotifications = @[
-        @"com.apple.screencapture.screenshot",
-        @"user.screencapture",
-        @"com.apple.screenShot",
-        @"com.apple.UIKit.screenshot",
-        @"com.apple.ScreenShot.screenshot"
+        @"com.apple.springboard.screenshot",
+        @"com.apple.springboard.screencapture",
+        @"com.apple.springboard.takeScreenshot",
+        @"com.apple.screencapture.screenshot.completed",
+        @"com.apple.screencapture.screenshot.save"
     ];
 
     for (NSString *notificationName in screenshotNotifications) {
-        WriteDebugLog([NSString stringWithFormat:@"注册 Darwin 截图通知: %@", notificationName]);
+        WriteDebugLog([NSString stringWithFormat:@"注册 SpringBoard 截图通知: %@", notificationName]);
         CFNotificationCenterAddObserver(
             darwinCenter,
             (__bridge const void *)self,
@@ -206,6 +211,17 @@ static void WriteDebugLog(NSString *message) {
             CFNotificationSuspensionBehaviorCoalesce
         );
     }
+
+    // 添加系统截图声音通知监听
+    WriteDebugLog(@"注册系统截图声音通知");
+    CFNotificationCenterAddObserver(
+        darwinCenter,
+        (__bridge const void *)self,
+        handleScreenshot,
+        CFSTR("com.apple.systemsoundserverd.screenshot"),
+        NULL,
+        CFNotificationSuspensionBehaviorCoalesce
+    );
 
     // 添加测试通知
     WriteDebugLog(@"开始注册应用激活测试通知监听");
@@ -389,6 +405,7 @@ static void WriteDebugLog(NSString *message) {
     WriteDebugLog(@"控制器即将释放，清理观察者");
     [_orientationObserver invalidate];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [volumeView removeFromSuperview];
 }
 
 #pragma mark - HUD UI Main Functions
@@ -397,6 +414,8 @@ static void WriteDebugLog(NSString *message) {
 {
     [super viewDidLoad];
     WriteDebugLog(@"视图加载完成，开始初始化");
+    [self registerNotifications];
+    [self setupVolumeButtonMonitor];
     // MARK: Main Content View
     _contentView = [[UIView alloc] init];
     _contentView.backgroundColor = [UIColor clearColor];
@@ -843,7 +862,13 @@ static inline CGRect orientationBounds(UIInterfaceOrientation orientation, CGRec
     WriteDebugLog(@"收到应用激活测试通知！");
 }
 
-// 添加 Darwin 通知处理函数
+// 添加相册变化处理方法
+- (void)handlePhotoLibraryChange:(NSNotification *)notification {
+    WriteDebugLog(@"检测到相册变化");
+    // 这里可以进一步判断是否是截图导致的变化
+    [self handleScreenshot:notification];
+}
+
 static void handleScreenshot
 (CFNotificationCenterRef center,
  void *observer,
@@ -852,10 +877,10 @@ static void handleScreenshot
  CFDictionaryRef userInfo)
 {
     HUDRootViewController *rootViewController = (__bridge HUDRootViewController *)observer;
-    WriteDebugLog([NSString stringWithFormat:@"收到 Darwin 截图通知！通知名称: %@", (__bridge NSString *)name]);
+    WriteDebugLog([NSString stringWithFormat:@"收到系统通知！通知名称: %@", (__bridge NSString *)name]);
 
     if (!rootViewController.view) {
-        WriteDebugLog(@"Darwin 通知中视图为空");
+        WriteDebugLog(@"系统通知中视图为空");
         return;
     }
 
@@ -864,13 +889,92 @@ static void handleScreenshot
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_HIDE_DURATION * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (!rootViewController.view) {
-            WriteDebugLog(@"Darwin 通知延迟回调中视图为空");
+            WriteDebugLog(@"系统通知延迟回调中视图为空");
             return;
         }
         [rootViewController.view setHidden:NO];
         [rootViewController resumeLoopTimer];
-        WriteDebugLog(@"Darwin 截图处理完成，视图已重新显示");
+        WriteDebugLog(@"系统通知处理完成，视图已重新显示");
     });
+}
+
+- (void)setupVolumeButtonMonitor {
+    WriteDebugLog(@"开始设置音量按键监控");
+
+    // 监控音量变化
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleVolumeChange:)
+                                               name:@"AVSystemController_SystemVolumeDidChangeNotification"
+                                             object:nil];
+
+    // 创建隐藏的音量视图来接收音量事件
+    volumeView = [[MPVolumeView alloc] initWithFrame:CGRectMake(-100, -100, 1, 1)];
+    [volumeView setHidden:YES];
+    [self.view addSubview:volumeView];
+
+    // 监控物理按键事件
+    if (@available(iOS 13.0, *)) {
+        WriteDebugLog(@"注册 UIPress 事件监控");
+        [self becomeFirstResponder];
+    }
+
+    // 注册 Darwin 通知监听物理按键
+    CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
+    NSArray *buttonNotifications = @[
+        @"com.apple.springboard.button.volup",
+        @"com.apple.springboard.button.voldown",
+        @"com.apple.springboard.button.sleep",
+        @"com.apple.springboard.button.home",
+        @"com.apple.springboard.button.ringer"
+    ];
+
+    for (NSString *notificationName in buttonNotifications) {
+        WriteDebugLog([NSString stringWithFormat:@"注册按键通知: %@", notificationName]);
+        CFNotificationCenterAddObserver(
+            darwinCenter,
+            (__bridge const void *)self,
+            handleButtonPress,
+            (__bridge CFStringRef)notificationName,
+            NULL,
+            CFNotificationSuspensionBehaviorCoalesce
+        );
+    }
+}
+
+// 处理音量变化
+- (void)handleVolumeChange:(NSNotification *)notification {
+    WriteDebugLog([NSString stringWithFormat:@"检测到音量变化: %@", notification.userInfo]);
+}
+
+// 处理物理按键事件
+static void handleButtonPress
+(CFNotificationCenterRef center,
+ void *observer,
+ CFStringRef name,
+ const void *object,
+ CFDictionaryRef userInfo)
+{
+    WriteDebugLog([NSString stringWithFormat:@"收到按键事件: %@", (__bridge NSString *)name]);
+}
+
+// iOS 13+ 支持 UIPress 事件
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    for (UIPress *press in presses) {
+        WriteDebugLog([NSString stringWithFormat:@"按键按下: %@", @(press.type)]);
+    }
+    [super pressesBegan:presses withEvent:event];
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    for (UIPress *press in presses) {
+        WriteDebugLog([NSString stringWithFormat:@"按键释放: %@", @(press.type)]);
+    }
+    [super pressesEnded:presses withEvent:event];
+}
+
+// 允许成为第一响应者以接收按键事件
+- (BOOL)canBecomeFirstResponder {
+    return YES;
 }
 
 @end
